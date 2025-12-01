@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { CosmosClient } = require("@azure/cosmos");
 const { DefaultAzureCredential } = require("@azure/identity");
+const { getUserFromRequest } = require("../utils/auth");
 
 const endpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
 const databaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
@@ -38,9 +39,19 @@ app.http("deleteItem", {
         return { status: 400, body: "Missing itemId parameter" };
       }
 
+      const user = getUserFromRequest(request, context);
+      if (!user) {
+        return { status: 401, body: "Unauthorized" };
+      }
+
       const client = new CosmosClient({ endpoint, aadCredentials: credential });
       const database = client.database(databaseName);
       const container = database.container(containerName);
+
+      const { resource } = await container.item(itemId, itemId).read();
+      if (!resource || resource.owner !== user.userId) {
+        return { status: 401, body: "Unauthorized" };
+      }
 
       await container.item(itemId, itemId).delete();
 

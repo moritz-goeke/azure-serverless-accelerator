@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { CosmosClient } = require("@azure/cosmos");
 const { DefaultAzureCredential } = require("@azure/identity");
+const { getUserFromRequest } = require("../utils/auth");
 
 const endpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
 const databaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
@@ -18,13 +19,19 @@ app.http("readItems", {
         return { status: 500, body: "Cosmos configuration missing." };
       }
 
+      const user = getUserFromRequest(request, context);
+      if (!user) {
+        return { status: 401, body: "Unauthorized" };
+      }
+
       const client = new CosmosClient({ endpoint, aadCredentials: credential });
       const database = client.database(databaseName);
       const container = database.container(containerName);
 
       const querySpec = {
-        query: "SELECT * FROM c ORDER BY c.createdAt DESC",
-        parameters: [],
+        query:
+          "SELECT * FROM c WHERE c.owner = @owner ORDER BY c.createdAt DESC",
+        parameters: [{ name: "@owner", value: user.userId }],
       };
 
       const { resources } = await container.items.query(querySpec).fetchAll();

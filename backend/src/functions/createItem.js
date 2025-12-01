@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const { v4: uuidv4 } = require("uuid");
 const { CosmosClient } = require("@azure/cosmos");
 const { DefaultAzureCredential } = require("@azure/identity");
+const { getUserFromRequest } = require("../utils/auth");
 
 const endpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
 const databaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
@@ -51,6 +52,11 @@ app.http("createItem", {
         return { status: 400, body: "Missing item parameter" };
       }
 
+      const user = getUserFromRequest(request, context);
+      if (!user) {
+        return { status: 401, body: "Unauthorized" };
+      }
+
       const item =
         typeof rawItem === "string" ? JSON.parse(rawItem) : { ...rawItem };
       const now = Date.now();
@@ -60,6 +66,7 @@ app.http("createItem", {
       item.updatedAt = now;
       item.messages = Array.isArray(item.messages) ? item.messages : [];
       item.title = item.title || buildDefaultTitle();
+      item.owner = user.userId;
 
       const client = new CosmosClient({ endpoint, aadCredentials: credential });
       const database = client.database(databaseName);

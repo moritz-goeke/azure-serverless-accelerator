@@ -1,0 +1,22 @@
+{
+  "responseOverrides": {
+    "401": {
+      "rewrite": "/.auth/login/aad?post_login_redirect_uri=/",
+      "statusCode": 302
+    }
+  },
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "statusCode": 200
+  }
+}

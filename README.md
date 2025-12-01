@@ -37,8 +37,8 @@ A starter that combines a Vite/React front end, an Azure Functions (Flex Consump
 
 ```
 frontend (Vite) → Static Web App ──► Azure Functions ──► Cosmos DB (NoSQL)
-                             │                      ╰─► App Insights + Storage
-                             │                      ╰─► Azure OpenAI (GPT‑5 Mini)
+                                                    ╰─► App Insights + Storage
+                                                    ╰─► Azure OpenAI (GPT‑5 Mini)
 
 GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web App build + Function zip)
 
