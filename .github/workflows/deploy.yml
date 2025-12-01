@@ -1,0 +1,152 @@
+name: Deploy Azure Serverless Accelerator
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      namePrefix:
+        description: "Override the default name prefix used in infra/main.parameters.json"
+        required: false
+        type: string
+      location:
+        description: "Azure region for this run (falls back to repository variable AZURE_LOCATION)"
+        required: false
+        type: string
+      cosmosLocation:
+        description: "Region used for Cosmos DB resources (defaults to germanywestcentral)"
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  AZURE_LOCATION: ${{ github.event.inputs.location || vars.AZURE_LOCATION || 'westeurope' }}
+  NAME_PREFIX: ${{ github.event.inputs.namePrefix || vars.NAME_PREFIX || 'swa-demo' }}
+  FRONTEND_NODE_VERSION: "22"
+  BACKEND_NODE_VERSION: "22"
+  BICEP_TEMPLATE: infra/main.bicep
+  BICEP_PARAMETERS: infra/main.parameters.json
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOYMENT_NAME: serverless-${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.FRONTEND_NODE_VERSION }} for frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.FRONTEND_NODE_VERSION }}
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Set up Node.js ${{ env.BACKEND_NODE_VERSION }} for backend
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.BACKEND_NODE_VERSION }}
+
+      - name: Install backend dependencies
+        run: npm install --prefix backend --omit=dev --no-audit --no-fund
+
+      - name: Archive backend package
+        run: |
+          cd backend
+          zip -r ../backend.zip .
+
+      - name: Resolve Cosmos DB region
+        run: |
+          COSMOS_LOCATION_INPUT="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.cosmosLocation || '' }}"
+          if [ -n "$COSMOS_LOCATION_INPUT" ]; then
+            COSMOS_LOCATION="$COSMOS_LOCATION_INPUT"
+          else
+            COSMOS_LOCATION="germanywestcentral"
+          fi
+          echo "Resolved Cosmos region: $COSMOS_LOCATION"
+          echo "COSMOS_LOCATION=$COSMOS_LOCATION" >> $GITHUB_ENV
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure Azure CLI staticwebapp extension
+        run: az extension add --name staticwebapp --upgrade
+
+      - name: Validate infrastructure changes (what-if)
+        run: |
+          az deployment group what-if \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file "$BICEP_TEMPLATE" \
+            --parameters @"$BICEP_PARAMETERS" \
+                namePrefix="$NAME_PREFIX" \
+                location="$AZURE_LOCATION" \
+                cosmosLocation="$COSMOS_LOCATION"
+
+      - name: Deploy infrastructure (Bicep)
+        run: |
+          az deployment group create \
+            --name "$DEPLOYMENT_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file "$BICEP_TEMPLATE" \
+            --parameters @"$BICEP_PARAMETERS" \
+                namePrefix="$NAME_PREFIX" \
+                location="$AZURE_LOCATION" \
+                cosmosLocation="$COSMOS_LOCATION" \
+            --query properties.outputs -o json > deployment-outputs.json
+
+      - name: Export deployment outputs
+        run: |
+          echo "FUNCTION_APP_NAME=$(jq -r '.functionAppName.value' deployment-outputs.json)" >> $GITHUB_ENV
+          echo "STATIC_WEB_APP_NAME=$(jq -r '.staticWebAppName.value' deployment-outputs.json)" >> $GITHUB_ENV
+          echo "STATIC_WEB_APP_HOSTNAME=$(jq -r '.staticWebAppDefaultHostname.value' deployment-outputs.json)" >> $GITHUB_ENV
+
+      - name: Deploy Azure Functions backend
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$FUNCTION_APP_NAME" \
+            --src "backend.zip" \
+            --build-remote true
+
+      - name: Install Static Web Apps CLI
+        run: npm install --global @azure/static-web-apps-cli
+
+      - name: Retrieve Static Web App deployment token
+        run: |
+          export SWA_CLI_DEPLOYMENT_TOKEN=$(az staticwebapp secrets list \
+            --name "$STATIC_WEB_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$SWA_CLI_DEPLOYMENT_TOKEN"
+          echo "SWA_CLI_DEPLOYMENT_TOKEN=$SWA_CLI_DEPLOYMENT_TOKEN" >> $GITHUB_ENV
+
+      - name: Upload Static Web App build
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ env.SWA_CLI_DEPLOYMENT_TOKEN }}
+        run: |
+          swa deploy ./dist \
+            --env production \
+            --app-name "$STATIC_WEB_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP"
+
+      - name: Publish deployment summary
+        run: |
+          echo "Function App: $FUNCTION_APP_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "Static Web App: $STATIC_WEB_APP_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "Static Web App URL: https://$STATIC_WEB_APP_HOSTNAME" >> $GITHUB_STEP_SUMMARY

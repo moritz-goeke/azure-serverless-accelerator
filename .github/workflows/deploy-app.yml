@@ -1,0 +1,108 @@
+name: Deploy App Artifacts (Existing Infra)
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: "Resource group that already contains the Function App and Static Web App"
+        required: true
+        type: string
+      functionAppName:
+        description: "Name of the Function App to deploy the backend zip"
+        required: true
+        type: string
+      staticWebAppName:
+        description: "Name of the Static Web App to upload the frontend build"
+        required: true
+        type: string
+      slot:
+        description: "Optional Static Web App environment (e.g. default, staging)"
+        required: false
+        type: string
+      azureClientId:
+        description: "Client ID of the federated service principal"
+        required: true
+        type: string
+      azureTenantId:
+        description: "Tenant ID where the service principal lives"
+        required: true
+        type: string
+      azureSubscriptionId:
+        description: "Azure subscription that contains the Function + Static Web App"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  FRONTEND_NODE_VERSION: "22"
+  BACKEND_NODE_VERSION: "22"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.FRONTEND_NODE_VERSION }}
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Set up Node.js for backend
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.BACKEND_NODE_VERSION }}
+
+      - name: Install backend dependencies
+        run: npm install --prefix backend --omit=dev --no-audit --no-fund
+
+      - name: Archive backend package
+        run: |
+          cd backend
+          zip -r ../backend.zip .
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ github.event.inputs.azureClientId }}
+          tenant-id: ${{ github.event.inputs.azureTenantId }}
+          subscription-id: ${{ github.event.inputs.azureSubscriptionId }}
+
+      - name: Deploy Azure Functions backend
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ github.event.inputs.resourceGroup }}" \
+            --name "${{ github.event.inputs.functionAppName }}" \
+            --src "backend.zip"
+
+      - name: Upload Static Web App build
+        run: |
+          if [ -n "${{ github.event.inputs.slot }}" ]; then
+            SLOT_ARG="--environment-name ${{ github.event.inputs.slot }}"
+          else
+            SLOT_ARG=""
+          fi
+          az staticwebapp upload \
+            --name "${{ github.event.inputs.staticWebAppName }}" \
+            --resource-group "${{ github.event.inputs.resourceGroup }}" \
+            --source "dist" \
+            $SLOT_ARG
+
+      - name: Publish deployment summary
+        run: |
+          echo "Function App: ${{ github.event.inputs.functionAppName }}" >> $GITHUB_STEP_SUMMARY
+          echo "Static Web App: ${{ github.event.inputs.staticWebAppName }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.event.inputs.slot }}" ]; then
+            echo "Static Web App Environment: ${{ github.event.inputs.slot }}" >> $GITHUB_STEP_SUMMARY
+          fi

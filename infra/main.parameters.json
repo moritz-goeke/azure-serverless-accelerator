@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "westeurope"
+    },
+    "namePrefix": {
+      "value": "swa-demo"
+    },
+    "functionsWorkerRuntime": {
+      "value": "node"
+    },
+    "nodeVersion": {
+      "value": "~22"
+    },
+    "repositoryUrl": {
+      "value": "https://github.com/moritz-goeke/azure-serverless-accelerator"
+    },
+    "repositoryBranch": {
+      "value": "main"
+    },
+    "appOutputLocation": {
+      "value": "dist"
+    },
+    "apiLocation": {
+      "value": "backend"
+    },
+    "cosmosDatabaseName": {
+      "value": "appdb"
+    },
+    "cosmosContainerName": {
+      "value": "items"
+    },
+    "cosmosPartitionKeyPath": {
+      "value": "/id"
+    },
+    "cosmosLocation": {
+      "value": "germanywestcentral"
+    },
+    "openAiLocation": {
+      "value": "swedencentral"
+    },
+    "openAiSkuName": {
+      "value": "S0"
+    },
+    "openAiDeploymentName": {
+      "value": "gpt5mini"
+    },
+    "openAiModelName": {
+      "value": "gpt-5-mini"
+    },
+    "openAiModelVersion": {
+      "value": "2025-08-07"
+    },
+    "openAiDeploymentCapacity": {
+      "value": 1
+    },
+    "tags": {
+      "value": {
+        "owner": "you@example.com",
+        "environment": "dev"
+      }
+    }
+  }
+}

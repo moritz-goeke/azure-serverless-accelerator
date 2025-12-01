@@ -1,0 +1,552 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "1840769355727345660"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Deployment location for all resources."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 15,
+      "metadata": {
+        "description": "Prefix used to build global resource names. Only alphanumeric characters and hyphens are allowed."
+      }
+    },
+    "functionsWorkerRuntime": {
+      "type": "string",
+      "defaultValue": "node",
+      "allowedValues": [
+        "node"
+      ],
+      "metadata": {
+        "description": "Azure Functions worker runtime that matches the backend implementation."
+      }
+    },
+    "nodeVersion": {
+      "type": "string",
+      "defaultValue": "~22",
+      "metadata": {
+        "description": "Node.js version when using the node worker runtime."
+      }
+    },
+    "repositoryUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/moritz-goeke/azure-serverless-accelerator",
+      "metadata": {
+        "description": "GitHub repository URL used for Static Web App metadata (required by the resource provider)."
+      }
+    },
+    "repositoryBranch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "Default branch tracked by Azure Static Web Apps for metadata."
+      }
+    },
+    "appOutputLocation": {
+      "type": "string",
+      "defaultValue": "dist",
+      "metadata": {
+        "description": "Relative path inside the repo where the Static Web App build output is produced."
+      }
+    },
+    "apiLocation": {
+      "type": "string",
+      "defaultValue": "backend",
+      "metadata": {
+        "description": "Relative path inside the repo for the Azure Functions backend used by Static Web Apps."
+      }
+    },
+    "cosmosDatabaseName": {
+      "type": "string",
+      "defaultValue": "appdb",
+      "metadata": {
+        "description": "Name of the Cosmos DB SQL database that stores application data."
+      }
+    },
+    "cosmosContainerName": {
+      "type": "string",
+      "defaultValue": "items",
+      "metadata": {
+        "description": "Name of the Cosmos DB SQL container that stores application data."
+      }
+    },
+    "cosmosPartitionKeyPath": {
+      "type": "string",
+      "defaultValue": "/id",
+      "metadata": {
+        "description": "Partition key path for the Cosmos DB container."
+      }
+    },
+    "cosmosLocation": {
+      "type": "string",
+      "defaultValue": "germanywestcentral",
+      "metadata": {
+        "description": "Azure region used specifically for Cosmos DB resources."
+      }
+    },
+    "functionMaxInstanceCount": {
+      "type": "int",
+      "defaultValue": 100,
+      "minValue": 40,
+      "maxValue": 1000,
+      "metadata": {
+        "description": "Maximum number of Flex Consumption instances to allow for the Function App."
+      }
+    },
+    "functionInstanceMemoryMB": {
+      "type": "int",
+      "defaultValue": 2048,
+      "allowedValues": [
+        2048,
+        4096
+      ],
+      "metadata": {
+        "description": "Memory allocated per Flex Consumption instance (in MB)."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Optional tags applied to every resource in this deployment."
+      }
+    }
+  },
+  "variables": {
+    "normalizedPrefix": "[toLower(replace(parameters('namePrefix'), '-', ''))]",
+    "uniqueSuffix": "[toLower(substring(uniqueString(resourceGroup().id, parameters('namePrefix')), 0, 5))]",
+    "storageAccountBase": "[toLower(format('{0}{1}sa', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
+    "storageAccountName": "[substring(variables('storageAccountBase'), 0, min(length(variables('storageAccountBase')), 24))]",
+    "functionPlanName": "[toLower(format('plan-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "functionAppName": "[toLower(format('func-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "staticWebAppName": "[toLower(format('swa-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "cosmosAccountBase": "[toLower(format('{0}{1}cos', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
+    "cosmosAccountName": "[substring(variables('cosmosAccountBase'), 0, min(length(variables('cosmosAccountBase')), 44))]",
+    "functionIdentityName": "[toLower(format('id-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "dataRoleDefinitionName": "[guid(variables('cosmosAccountName'), 'sql-data-role')]",
+    "dataRoleAssignmentName": "[guid(variables('functionAppName'), parameters('cosmosContainerName'), 'sql-data-assignment')]",
+    "functionPackageContainerName": "[toLower(format('pkg-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "sanitizedNodeVersion": "[replace(parameters('nodeVersion'), '~', '')]",
+    "allTags": "[union(parameters('tags'), createObject('workload', parameters('namePrefix')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('functionIdentityName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('allTags')]"
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-04-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": true,
+        "supportsHttpsTrafficOnly": true,
+        "accessTier": "Hot",
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true,
+              "keyType": "Account"
+            },
+            "file": {
+              "enabled": true,
+              "keyType": "Account"
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "networkAcls": {
+          "defaultAction": "Allow",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/default/{1}', variables('storageAccountName'), variables('functionPackageContainerName'))]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', variables('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), 'blob-data-contributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "Application_Type": "web",
+        "Flow_Type": "Bluefield",
+        "Request_Source": "AzureMonitor",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('functionPlanName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('allTags')]",
+      "sku": {
+        "name": "FC1",
+        "tier": "FlexConsumption"
+      },
+      "kind": "functionapp",
+      "properties": {
+        "reserved": true,
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "tags": "[variables('allTags')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('functionPlanName'))]",
+        "httpsOnly": true,
+        "clientAffinityEnabled": false,
+        "publicNetworkAccess": "Enabled",
+        "reserved": true,
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-04-01').keys[0].value, environment().suffixes.storage)]"
+            },
+            {
+              "name": "AZURE_CLIENT_ID",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').clientId]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix'))), '2020-02-02').InstrumentationKey]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix'))), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "COSMOS_ENDPOINT",
+              "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName')), '2023-04-15').documentEndpoint]"
+            },
+            {
+              "name": "COSMOS_DATABASE_NAME",
+              "value": "[parameters('cosmosDatabaseName')]"
+            },
+            {
+              "name": "COSMOS_CONTAINER_NAME",
+              "value": "[parameters('cosmosContainerName')]"
+            }
+          ],
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "http20Enabled": true
+        },
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('{0}{1}', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-04-01').primaryEndpoints.blob, variables('functionPackageContainerName'))]",
+              "authentication": {
+                "type": "UserAssignedIdentity",
+                "userAssignedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]"
+              }
+            }
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": "[parameters('functionMaxInstanceCount')]",
+            "instanceMemoryMB": "[parameters('functionInstanceMemoryMB')]"
+          },
+          "runtime": {
+            "name": "[parameters('functionsWorkerRuntime')]",
+            "version": "[variables('sanitizedNodeVersion')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', split(format('{0}/default/{1}', variables('storageAccountName'), variables('functionPackageContainerName')), '/')[0], split(format('{0}/default/{1}', variables('storageAccountName'), variables('functionPackageContainerName')), '/')[1], split(format('{0}/default/{1}', variables('storageAccountName'), variables('functionPackageContainerName')), '/')[2])]",
+        "[resourceId('Microsoft.Web/serverfarms', variables('functionPlanName'))]",
+        "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), 'blob-data-contributor'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2023-04-15",
+      "name": "[variables('cosmosAccountName')]",
+      "location": "[parameters('cosmosLocation')]",
+      "tags": "[variables('allTags')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "enableAutomaticFailover": false,
+        "isVirtualNetworkFilterEnabled": false,
+        "minimalTlsVersion": "Tls12",
+        "disableKeyBasedMetadataWriteAccess": true,
+        "disableLocalAuth": true,
+        "publicNetworkAccess": "Enabled",
+        "capabilities": [
+          {
+            "name": "EnableServerless"
+          }
+        ],
+        "backupPolicy": {
+          "type": "Periodic",
+          "periodicModeProperties": {
+            "backupIntervalInMinutes": 240,
+            "backupRetentionIntervalInHours": 8,
+            "backupStorageRedundancy": "Geo"
+          }
+        },
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session",
+          "maxIntervalInSeconds": 5,
+          "maxStalenessPrefix": 100
+        },
+        "locations": [
+          {
+            "locationName": "[parameters('cosmosLocation')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}', variables('cosmosAccountName'), parameters('cosmosDatabaseName'))]",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "resource": {
+          "id": "[parameters('cosmosDatabaseName')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}/{2}', variables('cosmosAccountName'), parameters('cosmosDatabaseName'), parameters('cosmosContainerName'))]",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "resource": {
+          "id": "[parameters('cosmosContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "[parameters('cosmosPartitionKeyPath')]"
+            ],
+            "kind": "Hash",
+            "version": 2
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true
+          },
+          "defaultTtl": -1
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', variables('cosmosAccountName'), parameters('cosmosDatabaseName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}', variables('cosmosAccountName'), variables('dataRoleDefinitionName'))]",
+      "properties": {
+        "roleName": "[format('{0}-cosmos-data', parameters('namePrefix'))]",
+        "type": "CustomRole",
+        "assignableScopes": [
+          "[format('{0}/dbs/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName')), parameters('cosmosDatabaseName'))]"
+        ],
+        "permissions": [
+          {
+            "dataActions": [
+              "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*",
+              "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*"
+            ],
+            "notDataActions": []
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2023-04-15",
+      "name": "[format('{0}/{1}', variables('cosmosAccountName'), variables('dataRoleAssignmentName'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').principalId]",
+        "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('cosmosAccountName'), variables('dataRoleDefinitionName'))]",
+        "scope": "[format('{0}/dbs/{1}/colls/{2}', resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName')), parameters('cosmosDatabaseName'), parameters('cosmosContainerName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('cosmosAccountName'), variables('dataRoleDefinitionName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/staticSites",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('staticWebAppName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('allTags')]",
+      "sku": {
+        "name": "Standard",
+        "tier": "Standard"
+      },
+      "properties": {
+        "repositoryUrl": "[parameters('repositoryUrl')]",
+        "branch": "[parameters('repositoryBranch')]",
+        "buildProperties": {
+          "appLocation": "/",
+          "apiLocation": "[parameters('apiLocation')]",
+          "outputLocation": "[parameters('appOutputLocation')]",
+          "skipGithubActionWorkflowGeneration": true
+        },
+        "allowConfigFileUpdates": true,
+        "stagingEnvironmentPolicy": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Web/staticSites/linkedBackends",
+      "apiVersion": "2022-03-01",
+      "name": "[format('{0}/{1}', variables('staticWebAppName'), variables('functionAppName'))]",
+      "properties": {
+        "backendResourceId": "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
+        "region": "[parameters('location')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
+        "[resourceId('Microsoft.Web/staticSites', variables('staticWebAppName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('functionAppName')]"
+    },
+    "functionAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').principalId]"
+    },
+    "functionUserAssignedIdentityId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]"
+    },
+    "functionUserAssignedIdentityClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').clientId]"
+    },
+    "functionAppDefaultHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01').defaultHostName]"
+    },
+    "staticWebAppName": {
+      "type": "string",
+      "value": "[variables('staticWebAppName')]"
+    },
+    "staticWebAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/staticSites', variables('staticWebAppName'))]"
+    },
+    "staticWebAppDefaultHostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/staticSites', variables('staticWebAppName')), '2022-09-01').defaultHostname]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosAccountName')]"
+    },
+    "cosmosAccountEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName')), '2023-04-15').documentEndpoint]"
+    },
+    "cosmosDatabaseOutputName": {
+      "type": "string",
+      "value": "[parameters('cosmosDatabaseName')]"
+    },
+    "cosmosContainerOutputName": {
+      "type": "string",
+      "value": "[parameters('cosmosContainerName')]"
+    },
+    "cosmosRoleDefinitionId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('cosmosAccountName'), variables('dataRoleDefinitionName'))]"
+    }
+  }
+}
