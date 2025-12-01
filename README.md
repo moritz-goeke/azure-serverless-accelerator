@@ -46,7 +46,7 @@ GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web
 
 ## AI & Conversation Flow
 
-1. The React client sends the user prompt plus the current conversation transcript to `/api/openai`.
+1. The (React) client sends the user prompt plus the current conversation transcript to `/api/openai`.
 2. The Function App enriches the transcript, requests an Azure AD token, and calls the configured Azure OpenAI deployment.
 3. Usage data (`prompt_tokens`, `completion_tokens`) from Azure OpenAI is echoed back to the UI to update the live dashboard.
 4. Conversations can be persisted, listed, and deleted via the Cosmos-backed CRUD APIs (`createItem`, `readItems`, `updateItem`, `deleteItem`).
