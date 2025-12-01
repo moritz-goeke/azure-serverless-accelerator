@@ -1,6 +1,21 @@
 # Azure Serverless Accelerator
 
-An opinionated starter that combines a Vite/React front end, an Azure Functions (Flex Consumption) backend, Cosmos DB for NoSQL, and Azure OpenAI (GPT‑5 Mini) behind managed identities. Infrastructure is described with Bicep and deployed through a GitHub Actions workflow that provisions resources, uploads the Functions app code, and pushes the Static Web App build.
+A starter that combines a Vite/React front end, an Azure Functions (Flex Consumption) backend, Cosmos DB for NoSQL, and Azure OpenAI (GPT‑5 Mini) behind managed identities. Infrastructure is described with Bicep and deployed through a GitHub Actions workflow that provisions resources, uploads the Functions app code, and pushes the Static Web App build.
+
+## Table of Contents
+
+- [Key Capabilities](#key-capabilities)
+- [Architecture at a Glance](#architecture-at-a-glance)
+- [AI & Conversation Flow](#ai--conversation-flow)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Setup Guide](#setup-guide)
+- [Local Development](#local-development)
+- [Infrastructure as Code](#infrastructure-as-code)
+- [GitHub Actions Deployment](#github-actions-deployment)
+- [Node.js Tooling Alignment](#nodejs-tooling-alignment)
+- [Testing the AI Endpoint](#testing-the-ai-endpoint)
+- [Troubleshooting](#troubleshooting)
 
 ## Key Capabilities
 
@@ -24,7 +39,9 @@ An opinionated starter that combines a Vite/React front end, an Azure Functions 
 frontend (Vite) → Static Web App ──► Azure Functions ──► Cosmos DB (NoSQL)
                              │                      ╰─► App Insights + Storage
                              │                      ╰─► Azure OpenAI (GPT‑5 Mini)
-                             ╰── GitHub Actions/OIDC for infra + app deployment
+
+GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web App build + Function zip)
+
 ```
 
 ## AI & Conversation Flow

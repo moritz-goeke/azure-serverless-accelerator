@@ -303,18 +303,10 @@ function MainPage() {
     setWriting(true);
     const start = Date.now();
     try {
-      const response = await axios.post(
-        "/api/openai",
-        {
-          message: trimmedText,
-          conversation: JSON.stringify(conversation),
-        },
-        {
-          headers: {
-            "Content-Type": "text/plain",
-          },
-        }
-      );
+      const response = await axios.post("/api/openai", {
+        message: trimmedText,
+        conversation: JSON.stringify(conversation),
+      });
       let data = response.data;
       if (typeof data === "string") {
         try {
@@ -758,14 +750,14 @@ function MainPage() {
                     <InputAdornment position="end" sx={{ mr: 0.5 }}>
                       {writing ? (
                         <IconButton onClick={() => setSkipAnimation(true)}>
-                          <StopRoundedIcon color={RED} />
+                          <StopRoundedIcon sx={{ color: RED }} />
                         </IconButton>
                       ) : (
                         <IconButton
                           onClick={() => sendMessage(inputText, true)}
                           disabled={writing}
                         >
-                          <SendRoundedIcon color={RED} />
+                          <SendRoundedIcon sx={{ color: RED }} />
                         </IconButton>
                       )}
                     </InputAdornment>

@@ -4,6 +4,13 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 
+const normalizeMathContent = (value) => {
+  const text = typeof value === "string" ? value : String(value ?? "");
+  return text
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_match, expr) => `$$\n${expr}\n$$`)
+    .replace(/\\\((.+?)\\\)/g, (_match, expr) => `$${expr}$`);
+};
+
 export default function AiMarkdown({ children, fontSize = 14 }) {
   return (
     <Box
@@ -37,9 +44,7 @@ export default function AiMarkdown({ children, fontSize = 14 }) {
           ),
         }}
       >
-        {children
-          .replace(/\\\[([\s\S]+?)\\\]/g, "$$\n$1\n$$")
-          .replace(/\\\((.+?)\\\)/g, "$$1$")}
+        {normalizeMathContent(children)}
       </ReactMarkdown>
     </Box>
   );

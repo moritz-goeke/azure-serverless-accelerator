@@ -8,7 +8,7 @@ export function beautifyCostCentValue(value) {
   return roundToXDigits(value, 3) + "ct";
 }
 
-export function roundToXDigits(number, digits) {
+function roundToXDigits(number, digits) {
   const scale = 10 ** digits;
   return Math.round((number + Number.EPSILON) * scale) / scale;
 }

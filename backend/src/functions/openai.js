@@ -16,6 +16,23 @@ const getAzureAdToken = async () => {
   return token;
 };
 
+const parseRequestBody = async (request, context) => {
+  const contentType = request.headers.get("content-type") || "";
+  try {
+    if (contentType.includes("application/json")) {
+      return await request.json();
+    }
+    const raw = await request.text();
+    if (!raw) {
+      return {};
+    }
+    return JSON.parse(raw);
+  } catch (error) {
+    context.log("Failed to parse request body", error);
+    return {};
+  }
+};
+
 app.http("openai", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -27,15 +44,36 @@ app.http("openai", {
         return { status: 500, body: "Azure OpenAI endpoint missing." };
       }
 
-      const requestMessage = request.params.message;
-      const requestConversation = JSON.parse(request.params.conversation);
+      const body = await parseRequestBody(request, context);
+      const requestMessage = body?.message ?? request.params?.message;
+      const conversationPayload =
+        body?.conversation ?? request.params?.conversation;
 
-      let messageArray = requestConversation
-        .map((x) => ({
-          role: x.from === "gpt" ? "assistant" : "user",
-          content: x.message,
-        }))
-        .reverse();
+      if (!requestMessage) {
+        return { status: 400, body: "Missing message payload" };
+      }
+
+      let requestConversation = [];
+      if (Array.isArray(conversationPayload)) {
+        requestConversation = conversationPayload;
+      } else if (
+        typeof conversationPayload === "string" &&
+        conversationPayload.length
+      ) {
+        try {
+          requestConversation = JSON.parse(conversationPayload);
+        } catch (error) {
+          context.log("Failed to parse conversation payload", error);
+          return { status: 400, body: "Invalid conversation payload" };
+        }
+      }
+
+      const messageArray = requestConversation
+        .filter((entry) => entry && typeof entry.message === "string")
+        .map((entry) => ({
+          role: entry.from === "gpt" ? "assistant" : "user",
+          content: entry.message,
+        }));
       messageArray.push({ role: "user", content: requestMessage });
 
       const completionObject = {
