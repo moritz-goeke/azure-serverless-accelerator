@@ -262,6 +262,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           value: '~4'
         }
         {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: functionsWorkerRuntime
+        }
+        {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
           value: appInsights.properties.InstrumentationKey
         }
