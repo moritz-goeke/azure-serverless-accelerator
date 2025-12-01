@@ -53,6 +53,9 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Include Static Web App config
+        run: cp staticwebapp.config.json dist/staticwebapp.config.json
+
       - name: Set up Node.js ${{ env.BACKEND_NODE_VERSION }} for backend
         uses: actions/setup-node@v4
         with:
