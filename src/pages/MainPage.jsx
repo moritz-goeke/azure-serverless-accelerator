@@ -28,9 +28,9 @@ import {
 import AzureLogo from "../assets/azure_logo.png";
 import AiMarkdown from "../components/AiMarkdown";
 import {
+  ACCENT_BLUE,
   AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
   LIGHT_BLUE,
-  RED,
   WHITE,
   costInCentPerInputToken,
   costInCentPerOutputToken,
@@ -38,6 +38,7 @@ import {
 } from "../components/consts";
 import { FooterLine } from "../components/Footer";
 import { beautifyCostCentValue } from "../components/helpers";
+import NotificationSnackbar from "../components/NotificationSnackbar";
 import Typewriter from "../components/Typewriter";
 
 const CONVERSATION_CONTAINER = "Conversations";
@@ -112,8 +113,16 @@ function MainPage() {
   const [titleDraft, setTitleDraft] = React.useState(buildDefaultTitle);
   const [sidebarLoading, setSidebarLoading] = React.useState(true);
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
+  const [snackbarOpen, setSnackbarOpen] = React.useState(false);
+  const [snackbarMessage, setSnackbarMessage] = React.useState("");
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
+
+  const showSnackbar = React.useCallback((message) => {
+    if (!message) return;
+    setSnackbarMessage(message);
+    setSnackbarOpen(true);
+  }, []);
 
   const resetSessionStats = React.useCallback(() => {
     setPromptTokens(0);
@@ -182,10 +191,16 @@ function MainPage() {
       }
     } catch (error) {
       console.error("Failed to load conversations", error);
+      showSnackbar("Failed to load conversations. Please try again.");
     } finally {
       setSidebarLoading(false);
     }
-  }, [fetchConversationList, handleCreateConversation, loadConversation]);
+  }, [
+    fetchConversationList,
+    handleCreateConversation,
+    loadConversation,
+    showSnackbar,
+  ]);
 
   React.useEffect(() => {
     initializeConversations();
@@ -270,6 +285,7 @@ function MainPage() {
         if (updated) {
           upsertConversation(updated);
           setTitleDraft(updated.title || trimmedTitle || "");
+          showSnackbar("Conversation updated.");
         }
       } else {
         const response = await axios.post("/api/createItem", {
@@ -281,14 +297,22 @@ function MainPage() {
           upsertConversation(created);
           setActiveConversationId(created.id);
           setTitleDraft(created.title || trimmedTitle || "");
+          showSnackbar("Conversation saved.");
         }
       }
     } catch (error) {
       console.error("Failed to save conversation", error);
+      showSnackbar("Failed to save conversation.");
     } finally {
       setSidebarBusy(false);
     }
-  }, [activeConversationId, chatArray, titleDraft, upsertConversation]);
+  }, [
+    activeConversationId,
+    chatArray,
+    titleDraft,
+    upsertConversation,
+    showSnackbar,
+  ]);
 
   const sendMessage = async (text, addToChat = true) => {
     if (!text || !text.trim()) return;
@@ -511,6 +535,11 @@ function MainPage() {
         height: "100vh",
       }}
     >
+      <NotificationSnackbar
+        open={snackbarOpen}
+        setOpen={setSnackbarOpen}
+        message={snackbarMessage}
+      />
       <Box
         sx={{
           height: 64,
@@ -750,14 +779,14 @@ function MainPage() {
                     <InputAdornment position="end" sx={{ mr: 0.5 }}>
                       {writing ? (
                         <IconButton onClick={() => setSkipAnimation(true)}>
-                          <StopRoundedIcon sx={{ color: RED }} />
+                          <StopRoundedIcon sx={{ color: ACCENT_BLUE }} />
                         </IconButton>
                       ) : (
                         <IconButton
                           onClick={() => sendMessage(inputText, true)}
                           disabled={writing}
                         >
-                          <SendRoundedIcon sx={{ color: RED }} />
+                          <SendRoundedIcon sx={{ color: ACCENT_BLUE }} />
                         </IconButton>
                       )}
                     </InputAdornment>

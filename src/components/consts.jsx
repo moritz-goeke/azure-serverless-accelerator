@@ -1,5 +1,5 @@
 export const LIGHT_BLUE = "#00a2b8";
-export const RED = "#235864";
+export const ACCENT_BLUE = "#235864";
 export const WHITE = "#ffffff";
 
 export function customScrollBar(color = LIGHT_BLUE) {
