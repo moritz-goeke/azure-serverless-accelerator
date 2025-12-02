@@ -259,8 +259,10 @@ function MainPage() {
           handleCreateConversation();
         }
       }
+      showSnackbar("Conversation deleted.");
     } catch (error) {
       console.error("Failed to delete conversation", error);
+      showSnackbar("Failed to delete conversation.");
     } finally {
       setSidebarBusy(false);
     }
