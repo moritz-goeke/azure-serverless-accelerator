@@ -7,6 +7,18 @@
   },
   "routes": [
     {
+      "route": "/assets/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/favicon.ico",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["authenticated"]
     },
