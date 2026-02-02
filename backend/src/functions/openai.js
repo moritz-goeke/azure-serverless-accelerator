@@ -74,7 +74,6 @@ app.http("openai", {
           role: entry.from === "gpt" ? "assistant" : "user",
           content: entry.message,
         }));
-      messageArray.push({ role: "user", content: requestMessage });
 
       const completionObject = {
         messages: messageArray,
