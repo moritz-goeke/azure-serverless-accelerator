@@ -6,7 +6,7 @@
       "value": "westeurope"
     },
     "namePrefix": {
-      "value": "swa-demo"
+      "value": "uni-well"
     },
     "functionsWorkerRuntime": {
       "value": "node"
@@ -18,7 +18,7 @@
       "value": "https://github.com/moritz-goeke/azure-serverless-accelerator"
     },
     "repositoryBranch": {
-      "value": "main"
+      "value": "feature/uni-wellbeing"
     },
     "appOutputLocation": {
       "value": "dist"
@@ -54,6 +54,18 @@
       "value": "2025-08-07"
     },
     "openAiDeploymentCapacity": {
+      "value": 1
+    },
+    "openAiDeploymentName2": {
+      "value": "gpt4o"
+    },
+    "openAiModelName2": {
+      "value": "gpt-4o"
+    },
+    "openAiModelVersion2": {
+      "value": "2024-11-20"
+    },
+    "openAiDeploymentCapacity2": {
       "value": 1
     },
     "tags": {

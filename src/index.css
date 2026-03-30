@@ -3,3 +3,7 @@
     scrollbar-width: thin;
   }
 }
+
+* {
+  font-family: 'Nunito', sans-serif;
+}

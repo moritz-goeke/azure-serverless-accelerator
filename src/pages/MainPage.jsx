@@ -2,14 +2,17 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import StopRoundedIcon from "@mui/icons-material/StopRounded";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import SpaIcon from "@mui/icons-material/Spa";
 import {
   Box,
   Button,
   CircularProgress,
-  Icon,
   IconButton,
   InputAdornment,
   LinearProgress,
+  MenuItem,
+  Select,
   TextField,
   Typography,
 } from "@mui/material";
@@ -25,13 +28,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import AzureLogo from "../assets/azure_logo.png";
 import AiMarkdown from "../components/AiMarkdown";
 import {
-  ACCENT_BLUE,
+  ACCENT_WARM,
   AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
-  LIGHT_BLUE,
-  WHITE,
+  BG_CARD,
+  BG_WARM,
+  BORDER_SOFT,
+  PRIMARY,
+  PRIMARY_DARK,
+  PRIMARY_LIGHT,
+  TEXT_DARK,
+  TEXT_MUTED,
   costInCentPerInputToken,
   costInCentPerOutputToken,
   customScrollBar,
@@ -43,7 +51,12 @@ import Typewriter from "../components/Typewriter";
 
 const CONVERSATION_CONTAINER = "Conversations";
 const DEFAULT_ASSISTANT_MESSAGE =
-  "Hello, I am the serverless agent. Ask me a question about serverless on Azure.";
+  "Hallo! Ich bin dein Wellbeing-Assistent. Ich bin hier, um dich zu unterstützen – ob bei Stress, Prüfungsangst oder wenn du einfach jemanden zum Reden brauchst. Wie kann ich dir heute helfen?";
+
+const MODEL_OPTIONS = [
+  { value: "gpt5mini", label: "GPT-5 Mini", description: "Schnell & effizient" },
+  { value: "gpt4o", label: "GPT-4o", description: "Ausführlich & empathisch" },
+];
 
 const buildDefaultMessages = () => [
   {
@@ -81,7 +94,7 @@ const formatConversationTimestamp = (value) => {
     : new Date(value);
   if (Number.isNaN(dateValue.getTime())) return "";
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat("de-DE", {
       dateStyle: "short",
       timeStyle: "short",
     }).format(dateValue);
@@ -93,8 +106,10 @@ const formatConversationTimestamp = (value) => {
 
 const buildDefaultTitle = () => formatConversationTimestamp(Date.now()) || "";
 
+const fontMain = { fontFamily: "'Nunito', sans-serif" };
+
 function MainPage() {
-  const selectedModel = "gpt5mini";
+  const [selectedModel, setSelectedModel] = React.useState("gpt5mini");
   const [inputText, setInputText] = React.useState("");
   const [chatArray, setChatArray] = React.useState([]);
   const [typewriterIndex, setTypewriterIndex] = React.useState(null);
@@ -115,6 +130,7 @@ function MainPage() {
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState("");
+  const [showStats, setShowStats] = React.useState(false);
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
@@ -191,7 +207,7 @@ function MainPage() {
       }
     } catch (error) {
       console.error("Failed to load conversations", error);
-      showSnackbar("Failed to load conversations. Please try again.");
+      showSnackbar("Gespräche konnten nicht geladen werden.");
     } finally {
       setSidebarLoading(false);
     }
@@ -259,10 +275,10 @@ function MainPage() {
           handleCreateConversation();
         }
       }
-      showSnackbar("Conversation deleted.");
+      showSnackbar("Gespräch gelöscht.");
     } catch (error) {
       console.error("Failed to delete conversation", error);
-      showSnackbar("Failed to delete conversation.");
+      showSnackbar("Gespräch konnte nicht gelöscht werden.");
     } finally {
       setSidebarBusy(false);
     }
@@ -287,7 +303,7 @@ function MainPage() {
         if (updated) {
           upsertConversation(updated);
           setTitleDraft(updated.title || trimmedTitle || "");
-          showSnackbar("Conversation updated.");
+          showSnackbar("Gespräch aktualisiert.");
         }
       } else {
         const response = await axios.post("/api/createItem", {
@@ -299,12 +315,12 @@ function MainPage() {
           upsertConversation(created);
           setActiveConversationId(created.id);
           setTitleDraft(created.title || trimmedTitle || "");
-          showSnackbar("Conversation saved.");
+          showSnackbar("Gespräch gespeichert.");
         }
       }
     } catch (error) {
       console.error("Failed to save conversation", error);
-      showSnackbar("Failed to save conversation.");
+      showSnackbar("Gespräch konnte nicht gespeichert werden.");
     } finally {
       setSidebarBusy(false);
     }
@@ -332,6 +348,7 @@ function MainPage() {
       const response = await axios.post("/api/openai", {
         message: trimmedText,
         conversation: JSON.stringify(conversation),
+        model: selectedModel,
       });
       let data = response.data;
       if (typeof data === "string") {
@@ -374,7 +391,7 @@ function MainPage() {
         return next.slice(-20);
       });
       const gptContent =
-        data?.choices?.[0]?.message?.content || "(no response received)";
+        data?.choices?.[0]?.message?.content || "(Keine Antwort erhalten)";
       const updatedConversation = [
         ...conversation,
         { from: "gpt", message: gptContent },
@@ -386,7 +403,7 @@ function MainPage() {
       console.error("Failed to send message", error);
       setChatArray((arr) => [
         ...arr,
-        { from: "gpt", message: "Error fetching the response", error: true },
+        { from: "gpt", message: "Fehler beim Abrufen der Antwort.", error: true },
       ]);
     } finally {
       setLoadingAnswer(false);
@@ -394,7 +411,7 @@ function MainPage() {
     }
   };
 
-  const fontMono = { fontFamily: "Lato", fontSize: 12, letterSpacing: 0.3 };
+  const fontMono = { ...fontMain, fontSize: 12, letterSpacing: 0.3 };
   const metricRow = (label, value) => (
     <Box
       sx={{
@@ -403,8 +420,8 @@ function MainPage() {
         justifyContent: "space-between",
       }}
     >
-      <Typography sx={{ ...fontMono, color: "#8fa3ad" }}>{label}</Typography>
-      <Typography sx={{ ...fontMono, fontWeight: 600, color: "#dde7eb" }}>
+      <Typography sx={{ ...fontMono, color: TEXT_MUTED }}>{label}</Typography>
+      <Typography sx={{ ...fontMono, fontWeight: 700, color: TEXT_DARK }}>
         {value}
       </Typography>
     </Box>
@@ -441,23 +458,23 @@ function MainPage() {
     <Box
       sx={{
         p: 1.5,
-        background: "#1d272e",
-        borderRadius: 2,
-        border: "1px solid #ffffff12",
+        background: BG_CARD,
+        borderRadius: 3,
+        border: `1px solid ${BORDER_SOFT}`,
         display: "flex",
         flexDirection: "column",
         gap: 0.5,
-        height: 180,
+        height: 160,
       }}
     >
       <Typography
         sx={{
-          fontFamily: "Lato",
-          fontSize: 12,
-          fontWeight: 600,
+          ...fontMain,
+          fontSize: 11,
+          fontWeight: 700,
           textTransform: "uppercase",
-          letterSpacing: 0.5,
-          color: LIGHT_BLUE,
+          letterSpacing: 0.8,
+          color: PRIMARY,
         }}
       >
         {title}
@@ -473,7 +490,7 @@ function MainPage() {
                 borderRadius: 1,
               }}
             />
-            <Typography sx={{ ...fontMono, color: "#8fa3ad", fontSize: 11 }}>
+            <Typography sx={{ ...fontMono, color: TEXT_MUTED, fontSize: 10 }}>
               {l.label || l.name || ""}
             </Typography>
           </Box>
@@ -495,19 +512,20 @@ function MainPage() {
           })()}
           margin={{ top: 5, right: 8, left: -10, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="2 4" stroke="#27343c" />
+          <CartesianGrid strokeDasharray="2 4" stroke={BORDER_SOFT} />
           <XAxis
             dataKey="index"
-            stroke="#5d6b72"
+            stroke={TEXT_MUTED}
             tick={{ fontSize: 10 }}
             type="number"
             domain={["dataMin", "dataMax"]}
           />
-          <YAxis stroke="#5d6b72" tick={{ fontSize: 10 }} />
+          <YAxis stroke={TEXT_MUTED} tick={{ fontSize: 10 }} />
           <Tooltip
             contentStyle={{
-              background: "#223039",
-              border: "1px solid #33505c",
+              background: BG_CARD,
+              border: `1px solid ${BORDER_SOFT}`,
+              borderRadius: 8,
             }}
           />
           {lines.map((l, i) => (
@@ -531,10 +549,11 @@ function MainPage() {
       sx={{
         display: "flex",
         flexDirection: "column",
-        bgcolor: "#0e1418",
-        color: WHITE,
+        bgcolor: BG_WARM,
+        color: TEXT_DARK,
         overflow: "hidden",
         height: "100vh",
+        ...fontMain,
       }}
     >
       <NotificationSnackbar
@@ -542,169 +561,380 @@ function MainPage() {
         setOpen={setSnackbarOpen}
         message={snackbarMessage}
       />
+
+      {/* ─── Header ─── */}
       <Box
         sx={{
-          height: 64,
+          height: 68,
           width: 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-
-          background: "linear-gradient(90deg,#162634,#1d3646)",
-          borderBottom: "1px solid #1f2f38",
+          px: 3,
+          background: `linear-gradient(135deg, ${PRIMARY_DARK} 0%, ${PRIMARY} 60%, ${PRIMARY_LIGHT} 100%)`,
+          boxShadow: "0 2px 12px rgba(91,138,114,0.25)",
         }}
       >
-        <Box
-          sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}
-        >
-          <Icon
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <SpaIcon sx={{ color: "#fff", fontSize: 30, opacity: 0.9 }} />
+          <Box>
+            <Typography
+              sx={{
+                ...fontMain,
+                fontSize: 19,
+                fontWeight: 700,
+                color: "#fff",
+                lineHeight: 1.2,
+                letterSpacing: 0.3,
+              }}
+            >
+              Uni Wellbeing
+            </Typography>
+            <Typography
+              sx={{
+                ...fontMain,
+                fontSize: 11,
+                color: "rgba(255,255,255,0.75)",
+                lineHeight: 1,
+                letterSpacing: 0.2,
+              }}
+            >
+              Dein Raum für mentale Gesundheit
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Select
+            size="small"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
             sx={{
-              ml: 3,
-              height: 40,
-              width: 40,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              ...fontMain,
+              fontSize: 13,
+              color: "#fff",
+              minWidth: 160,
+              ".MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255,255,255,0.35)",
+                borderRadius: 2,
+              },
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: "rgba(255,255,255,0.6)",
+              },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#fff",
+              },
+              ".MuiSvgIcon-root": { color: "#fff" },
             }}
           >
-            <img
-              draggable={false}
-              src={AzureLogo}
-              alt="Azure"
-              style={{ maxHeight: 36, width: "auto", display: "block" }}
-            />
-          </Icon>
-          <Typography
+            {MODEL_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                <Box>
+                  <Typography sx={{ ...fontMain, fontSize: 13, fontWeight: 600 }}>
+                    {opt.label}
+                  </Typography>
+                  <Typography sx={{ ...fontMain, fontSize: 10, color: TEXT_MUTED }}>
+                    {opt.description}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => setShowStats((s) => !s)}
             sx={{
-              fontFamily: "Lato",
-              fontSize: 18,
-              fontWeight: 400,
-              lineHeight: 1,
+              ...fontMain,
+              textTransform: "none",
+              color: "rgba(255,255,255,0.8)",
+              fontSize: 12,
+              "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)" },
             }}
           >
-            Serverless App | AI Chat
-          </Typography>
+            {showStats ? "Statistiken ausblenden" : "Statistiken"}
+          </Button>
         </Box>
       </Box>
+
+      {/* ─── Main content ─── */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+
+        {/* ─── Sidebar: Conversations ─── */}
         <Box
           sx={{
-            width: 360,
+            width: 280,
             flexShrink: 0,
             display: "flex",
             flexDirection: "column",
             gap: 1.5,
             p: 2,
-            borderRight: "1px solid #1f2f38",
-            bgcolor: "#121b21",
+            borderRight: `1px solid ${BORDER_SOFT}`,
+            bgcolor: BG_CARD,
             minHeight: 0,
           }}
         >
-          <Box
+          <Typography
             sx={{
-              p: 1.5,
-              border: "1px solid #1f3640",
-              borderRadius: 2,
-              background: "linear-gradient(145deg,#15232c,#1d2f38)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 0.6,
+              ...fontMain,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 1,
+              textTransform: "uppercase",
+              color: TEXT_MUTED,
             }}
           >
-            {metricRow("Prompt Tokens", promptTokens)}
-            {metricRow("Completion Tokens", completionTokens)}
-            {metricRow(
-              "AI Cost (ct)",
-              beautifyCostCentValue(sessionCostConsumption)
-            )}
-            {metricRow("Exec Time (ms)", functionExecutionTime)}
-            {metricRow(
-              "Func Cost (ct)",
-              beautifyCostCentValue(functionComputeCost)
-            )}
-            {metricRow("Total (ct)", beautifyCostCentValue(totalOverallCost))}
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-              overflowY: "auto",
-              flex: 1,
-              minHeight: 0,
-              pr: 0.5,
-              ...customScrollBar(),
-            }}
-          >
-            {chartCard("Tokens", [
-              {
-                data: cumulative.tokensPrompt,
-                color: "#3ba9ff",
-                label: "Prompt",
-              },
-              {
-                data: cumulative.tokensCompletion,
-                color: "#36d9c6",
-                label: "Completion",
-              },
-            ])}
-            {chartCard("Computation Time (ms)", [
-              { data: cumulative.exec, color: "#ffb347", label: "Exec (ms)" },
-            ])}
-            {chartCard("Total costs (ct)", [
-              { data: cumulative.cost, color: "#e45b78", label: "Cost (ct)" },
-            ])}
-          </Box>
-        </Box>
-        <Box sx={{ flex: 1, display: "flex", minWidth: 0, overflow: "hidden" }}>
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              minWidth: 0,
-              p: 2,
-              gap: 1.5,
-              bgcolor: "#0f181d",
-            }}
-          >
-            <Box
-              ref={messagesRef}
+            Gespräche
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddCircleOutlineIcon />}
+              onClick={handleCreateConversation}
+              disabled={sidebarBusy || sidebarLoading || writing}
               sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                overflowY: "auto",
-                border: "1px solid #1f2f38",
+                ...fontMain,
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: 12,
+                bgcolor: PRIMARY,
                 borderRadius: 2,
-                background: "#142229",
-                p: 2,
-                ...customScrollBar(),
-                minHeight: 0,
+                boxShadow: "none",
+                "&:hover": { bgcolor: PRIMARY_DARK, boxShadow: "none" },
               }}
             >
-              <Box sx={{ flex: 1, minHeight: 0 }} />
-              {chatArray.map((chatObject, index) => (
+              Neues Gespräch
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleSaveConversation}
+              disabled={
+                sidebarBusy || sidebarLoading || writing || loadingAnswer
+              }
+              sx={{
+                ...fontMain,
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: 12,
+                borderColor: PRIMARY,
+                color: PRIMARY,
+                borderRadius: 2,
+                "&:hover": { borderColor: PRIMARY_DARK, color: PRIMARY_DARK },
+              }}
+            >
+              Speichern
+            </Button>
+          </Box>
+          <TextField
+            label="Titel"
+            variant="filled"
+            size="small"
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            disabled={sidebarBusy}
+            sx={{
+              ".MuiInputBase-root": {
+                borderRadius: 2,
+                bgcolor: BG_WARM,
+                color: TEXT_DARK,
+                px: 1.2,
+                ...fontMain,
+              },
+              "& .MuiInputBase-root:before": { borderBottom: "none" },
+              "& .MuiInputBase-root:after": { borderBottom: "none" },
+              ".MuiFormLabel-root": { color: TEXT_MUTED, ...fontMain },
+            }}
+            slotProps={{
+              input: {
+                disableUnderline: true,
+              },
+            }}
+          />
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.8,
+              overflowY: "auto",
+              ...customScrollBar(PRIMARY_LIGHT),
+            }}
+          >
+            {sidebarLoading ? (
+              <Typography sx={{ color: TEXT_MUTED, fontSize: 13, ...fontMain }}>
+                Gespräche werden geladen...
+              </Typography>
+            ) : conversations.length ? (
+              conversations.map((conversation) => {
+                const isActive = conversation.id === activeConversationId;
+                return (
+                  <Box
+                    key={conversation.id}
+                    onClick={() => handleSelectConversation(conversation.id)}
+                    sx={{
+                      px: 1.2,
+                      py: 1,
+                      borderRadius: 2.5,
+                      border: isActive
+                        ? `2px solid ${PRIMARY}`
+                        : `1px solid ${BORDER_SOFT}`,
+                      bgcolor: isActive ? `${PRIMARY}10` : "transparent",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 1,
+                      transition: "all 0.15s ease",
+                      "&:hover": {
+                        bgcolor: `${PRIMARY}08`,
+                      },
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, mr: 0.5 }}>
+                      <Typography
+                        sx={{
+                          fontSize: 13,
+                          fontWeight: isActive ? 700 : 500,
+                          color: TEXT_DARK,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          ...fontMain,
+                        }}
+                      >
+                        {conversation.title || "(Ohne Titel)"}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: 10,
+                          color: TEXT_MUTED,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          ...fontMain,
+                        }}
+                      >
+                        {formatConversationTimestamp(
+                          conversation.updatedAt || conversation.createdAt
+                        )}
+                      </Typography>
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={(event) =>
+                        handleDeleteConversation(event, conversation.id)
+                      }
+                      disabled={sidebarBusy}
+                      sx={{ color: TEXT_MUTED }}
+                    >
+                      <DeleteOutlineOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                );
+              })
+            ) : (
+              <Typography sx={{ color: TEXT_MUTED, fontSize: 13, ...fontMain }}>
+                Noch keine Gespräche
+              </Typography>
+            )}
+          </Box>
+          {sidebarBusy && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "rgba(250,247,242,0.85)",
+                zIndex: 2,
+              }}
+            >
+              <CircularProgress
+                size={28}
+                thickness={4}
+                sx={{ color: PRIMARY }}
+              />
+            </Box>
+          )}
+        </Box>
+
+        {/* ─── Chat area ─── */}
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
+            p: 2.5,
+            gap: 1.5,
+          }}
+        >
+          {/* Wellbeing info bar */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              px: 2,
+              py: 1.2,
+              borderRadius: 3,
+              bgcolor: `${PRIMARY_LIGHT}18`,
+              border: `1px solid ${PRIMARY_LIGHT}40`,
+            }}
+          >
+            <FavoriteIcon sx={{ color: ACCENT_WARM, fontSize: 18 }} />
+            <Typography sx={{ ...fontMain, fontSize: 12, color: TEXT_DARK, lineHeight: 1.4 }}>
+              Vertraulich &amp; sicher. Bei akuten Krisen wende dich an die
+              Telefonseelsorge: <strong>0800 111 0 111</strong> (kostenlos, 24/7)
+              oder an die psychologische Beratung deiner Hochschule.
+            </Typography>
+          </Box>
+
+          {/* Messages container */}
+          <Box
+            ref={messagesRef}
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflowY: "auto",
+              borderRadius: 4,
+              background: BG_CARD,
+              border: `1px solid ${BORDER_SOFT}`,
+              boxShadow: "0 1px 8px rgba(0,0,0,0.04)",
+              p: 2.5,
+              ...customScrollBar(PRIMARY_LIGHT),
+              minHeight: 0,
+            }}
+          >
+            <Box sx={{ flex: 1, minHeight: 0 }} />
+            {chatArray.map((chatObject, index) => {
+              const isUser = chatObject?.from === "user";
+              return (
                 <Box
                   key={index}
                   sx={{
                     display: "flex",
                     flexDirection: "column",
-                    alignItems:
-                      chatObject?.from === "user" ? "flex-end" : "flex-start",
-                    mb: 1.4,
+                    alignItems: isUser ? "flex-end" : "flex-start",
+                    mb: 1.8,
                   }}
                 >
                   <Box
                     sx={{
-                      px: 2,
-                      py: 1,
-                      borderRadius: 3,
-                      bgcolor:
-                        chatObject?.from === "user" ? "#ffffff" : "#e7f1f5",
-                      color: "#102027",
-                      boxShadow: 2,
-                      maxWidth: "80%",
+                      px: 2.2,
+                      py: 1.2,
+                      borderRadius: isUser
+                        ? "20px 20px 6px 20px"
+                        : "20px 20px 20px 6px",
+                      bgcolor: isUser ? PRIMARY : BG_WARM,
+                      color: isUser ? "#fff" : TEXT_DARK,
+                      boxShadow: isUser
+                        ? "0 2px 8px rgba(91,138,114,0.2)"
+                        : "0 1px 4px rgba(0,0,0,0.05)",
+                      maxWidth: "75%",
                     }}
                   >
                     {chatObject?.from === "gpt" &&
@@ -723,284 +953,183 @@ function MainPage() {
                     )}
                   </Box>
                 </Box>
-              ))}
-              {loadingAnswer && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignSelf: "flex-start",
-                    alignItems: "center",
-                    mt: 1,
-                  }}
-                >
-                  <LinearProgress
-                    sx={{
-                      width: 140,
-                      backgroundColor: "#1d3038",
-                      "& .MuiLinearProgress-bar": {
-                        backgroundColor: LIGHT_BLUE,
-                      },
-                    }}
-                  />
-                </Box>
-              )}
-            </Box>
-            <TextField
-              disabled={writing}
-              variant="filled"
-              placeholder="Enter your message."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage(inputText, true);
-                }
-              }}
-              size="small"
-              sx={{
-                width: 1,
-                ".MuiInputBase-root": {
-                  borderRadius: 3,
-                  py: 1,
-                  px: 2,
-                  display: "flex",
-                  height: 76,
-                  bgcolor: "#1b2a31",
-                  color: WHITE,
-                  boxShadow: "inset 0 0 0 1px #22333b",
-                },
-              }}
-              slotProps={{
-                htmlInput: {
-                  ref: inputRef,
-                  style: { fontSize: 15, lineHeight: 1.3 },
-                },
-                input: {
-                  disableUnderline: true,
-                  endAdornment: (
-                    <InputAdornment position="end" sx={{ mr: 0.5 }}>
-                      {writing ? (
-                        <IconButton onClick={() => setSkipAnimation(true)}>
-                          <StopRoundedIcon sx={{ color: ACCENT_BLUE }} />
-                        </IconButton>
-                      ) : (
-                        <IconButton
-                          onClick={() => sendMessage(inputText, true)}
-                          disabled={writing}
-                        >
-                          <SendRoundedIcon sx={{ color: ACCENT_BLUE }} />
-                        </IconButton>
-                      )}
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              multiline
-              maxRows={2}
-              spellCheck={false}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-            />
-          </Box>
-          <Box
-            sx={{
-              width: 260,
-              flexShrink: 0,
-              borderLeft: "1px solid #1f2f38",
-              bgcolor: "#111920",
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-              p: 1.5,
-              position: "relative",
-            }}
-          >
-            <Typography
-              sx={{
-                fontFamily: "Lato",
-                fontSize: 12,
-                letterSpacing: 0.6,
-                textTransform: "uppercase",
-                color: "#6d838f",
-              }}
-            >
-              Conversations
-            </Typography>
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddCircleOutlineIcon />}
-                onClick={handleCreateConversation}
-                disabled={sidebarBusy || sidebarLoading || writing}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  bgcolor: "#1e6c8c",
-                  "&:hover": { bgcolor: "#2180a5" },
-                }}
-              >
-                New Conversation
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleSaveConversation}
-                disabled={
-                  sidebarBusy || sidebarLoading || writing || loadingAnswer
-                }
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  borderColor: "#2f5667",
-                  color: "#b7c6ce",
-                  "&:hover": { borderColor: "#3e6f84" },
-                }}
-              >
-                Save Conversation
-              </Button>
-            </Box>
-            <TextField
-              label="Title"
-              variant="filled"
-              size="small"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              disabled={sidebarBusy}
-              helperText=" "
-              sx={{
-                ".MuiInputBase-root": {
-                  borderRadius: 2,
-                  bgcolor: "#16232b",
-                  color: WHITE,
-                  px: 1.2,
-                },
-                "& .MuiInputBase-root:before": { borderBottom: "none" },
-                "& .MuiInputBase-root:after": { borderBottom: "none" },
-                ".MuiFormLabel-root": { color: "#7c8d96" },
-              }}
-              slotProps={{
-                input: {
-                  disableUnderline: true,
-                },
-              }}
-            />
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: 1,
-                overflowY: "auto",
-                ...customScrollBar("#34505e"),
-              }}
-            >
-              {sidebarLoading ? (
-                <Typography sx={{ color: "#7d909a", fontSize: 13 }}>
-                  Loading conversations...
-                </Typography>
-              ) : conversations.length ? (
-                conversations.map((conversation) => {
-                  const isActive = conversation.id === activeConversationId;
-                  return (
-                    <Box
-                      key={conversation.id}
-                      onClick={() => handleSelectConversation(conversation.id)}
-                      sx={{
-                        px: 1.2,
-                        py: 1,
-                        borderRadius: 2,
-                        border: isActive
-                          ? "1px solid #2f5667"
-                          : "1px solid transparent",
-                        bgcolor: isActive ? "#17242c" : "transparent",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 1,
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0, mr: 0.5 }}>
-                        <Typography
-                          sx={{
-                            fontSize: 13,
-                            fontWeight: isActive ? 600 : 500,
-                            color: WHITE,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {conversation.title || "(Untitled)"}
-                        </Typography>
-                        <Typography
-                          sx={{
-                            fontSize: 11,
-                            color: "#7b8c95",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {formatConversationTimestamp(
-                            conversation.updatedAt || conversation.createdAt
-                          )}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={(event) =>
-                          handleDeleteConversation(event, conversation.id)
-                        }
-                        disabled={sidebarBusy}
-                        sx={{ color: "#7d8f98" }}
-                      >
-                        <DeleteOutlineOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  );
-                })
-              ) : (
-                <Typography sx={{ color: "#7d909a", fontSize: 13 }}>
-                  No conversations yet
-                </Typography>
-              )}
-            </Box>
-            {sidebarBusy && (
+              );
+            })}
+            {loadingAnswer && (
               <Box
                 sx={{
-                  position: "absolute",
-                  inset: 0,
                   display: "flex",
+                  flexDirection: "column",
+                  alignSelf: "flex-start",
                   alignItems: "center",
-                  justifyContent: "center",
-                  bgcolor: "rgba(15,24,29,0.8)",
-                  borderRadius: 0,
-                  zIndex: 2,
+                  mt: 1,
                 }}
               >
-                <CircularProgress
-                  size={28}
-                  thickness={4}
-                  sx={{ color: LIGHT_BLUE }}
+                <LinearProgress
+                  sx={{
+                    width: 140,
+                    borderRadius: 2,
+                    backgroundColor: `${PRIMARY}20`,
+                    "& .MuiLinearProgress-bar": {
+                      backgroundColor: PRIMARY,
+                    },
+                  }}
                 />
               </Box>
             )}
           </Box>
+
+          {/* Input box */}
+          <TextField
+            disabled={writing}
+            variant="filled"
+            placeholder="Schreib mir, was dich beschäftigt..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(inputText, true);
+              }
+            }}
+            size="small"
+            sx={{
+              width: 1,
+              ".MuiInputBase-root": {
+                borderRadius: 4,
+                py: 1.2,
+                px: 2.5,
+                display: "flex",
+                height: 72,
+                bgcolor: BG_CARD,
+                color: TEXT_DARK,
+                border: `1px solid ${BORDER_SOFT}`,
+                boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+                ...fontMain,
+              },
+            }}
+            slotProps={{
+              htmlInput: {
+                ref: inputRef,
+                style: {
+                  fontSize: 15,
+                  lineHeight: 1.4,
+                  fontFamily: "'Nunito', sans-serif",
+                },
+              },
+              input: {
+                disableUnderline: true,
+                endAdornment: (
+                  <InputAdornment position="end" sx={{ mr: 0.5 }}>
+                    {writing ? (
+                      <IconButton onClick={() => setSkipAnimation(true)}>
+                        <StopRoundedIcon sx={{ color: ACCENT_WARM }} />
+                      </IconButton>
+                    ) : (
+                      <IconButton
+                        onClick={() => sendMessage(inputText, true)}
+                        disabled={writing}
+                      >
+                        <SendRoundedIcon sx={{ color: PRIMARY }} />
+                      </IconButton>
+                    )}
+                  </InputAdornment>
+                ),
+              },
+            }}
+            multiline
+            maxRows={2}
+            spellCheck={false}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+          />
         </Box>
+
+        {/* ─── Stats panel (toggleable) ─── */}
+        {showStats && (
+          <Box
+            sx={{
+              width: 320,
+              flexShrink: 0,
+              borderLeft: `1px solid ${BORDER_SOFT}`,
+              bgcolor: BG_CARD,
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+              p: 2,
+              overflowY: "auto",
+              ...customScrollBar(PRIMARY_LIGHT),
+            }}
+          >
+            <Typography
+              sx={{
+                ...fontMain,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+                color: TEXT_MUTED,
+              }}
+            >
+              Sitzungsstatistiken
+            </Typography>
+            <Box
+              sx={{
+                p: 1.5,
+                border: `1px solid ${BORDER_SOFT}`,
+                borderRadius: 3,
+                background: BG_WARM,
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.6,
+              }}
+            >
+              {metricRow("Prompt Tokens", promptTokens)}
+              {metricRow("Completion Tokens", completionTokens)}
+              {metricRow(
+                "KI-Kosten (ct)",
+                beautifyCostCentValue(sessionCostConsumption)
+              )}
+              {metricRow("Ausführungszeit (ms)", functionExecutionTime)}
+              {metricRow(
+                "Funktionskosten (ct)",
+                beautifyCostCentValue(functionComputeCost)
+              )}
+              {metricRow("Gesamt (ct)", beautifyCostCentValue(totalOverallCost))}
+            </Box>
+            {chartCard("Tokens", [
+              {
+                data: cumulative.tokensPrompt,
+                color: PRIMARY,
+                label: "Prompt",
+              },
+              {
+                data: cumulative.tokensCompletion,
+                color: ACCENT_WARM,
+                label: "Completion",
+              },
+            ])}
+            {chartCard("Ausführungszeit (ms)", [
+              { data: cumulative.exec, color: "#E8A87C", label: "Zeit (ms)" },
+            ])}
+            {chartCard("Gesamtkosten (ct)", [
+              { data: cumulative.cost, color: "#C26B5B", label: "Kosten (ct)" },
+            ])}
+          </Box>
+        )}
       </Box>
+
+      {/* ─── Footer ─── */}
       <Box
         sx={{
           width: 1,
           textAlign: "center",
-          py: 0.7,
-          borderTop: "1px solid #1f2f38",
-          bgcolor: "#0b1317",
+          py: 0.8,
+          borderTop: `1px solid ${BORDER_SOFT}`,
+          bgcolor: BG_CARD,
         }}
       >
-        <FooterLine typographySx={{ fontSize: 11, color: "#66767e" }}>
-          Built on Azure • Serverless AI App
+        <FooterLine typographySx={{ fontSize: 11, color: TEXT_MUTED, ...fontMain }}>
+          Uni Wellbeing &middot; KI-gestützte emotionale Unterstützung &middot;
+          Vertraulich &amp; sicher
         </FooterLine>
       </Box>
     </Box>

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/uni-wellbeing
   workflow_dispatch:
     inputs:
       namePrefix:
@@ -24,9 +25,9 @@ permissions:
   contents: read
 
 env:
-  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  AZURE_RESOURCE_GROUP: ${{ github.ref == 'refs/heads/feature/uni-wellbeing' && 'rg-uni-wellbeing' || vars.AZURE_RESOURCE_GROUP }}
   AZURE_LOCATION: ${{ github.event.inputs.location || vars.AZURE_LOCATION || 'westeurope' }}
-  NAME_PREFIX: ${{ github.event.inputs.namePrefix || vars.NAME_PREFIX || 'swa-demo' }}
+  NAME_PREFIX: ${{ github.ref == 'refs/heads/feature/uni-wellbeing' && 'uni-well' || github.event.inputs.namePrefix || vars.NAME_PREFIX || 'swa-demo' }}
   FRONTEND_NODE_VERSION: "22"
   BACKEND_NODE_VERSION: "22"
   BICEP_TEMPLATE: infra/main.bicep

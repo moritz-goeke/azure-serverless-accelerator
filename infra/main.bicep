@@ -59,6 +59,20 @@ param openAiModelVersion string = '2025-08-07'
 @maxValue(20)
 param openAiDeploymentCapacity int = 1
 
+@description('Name assigned to the second Azure OpenAI deployment.')
+param openAiDeploymentName2 string = 'gpt4o'
+
+@description('Model name configured in the second Azure OpenAI deployment.')
+param openAiModelName2 string = 'gpt-4o'
+
+@description('Model version configured in the second Azure OpenAI deployment.')
+param openAiModelVersion2 string = '2024-11-20'
+
+@description('Capacity allocated to the second Azure OpenAI deployment.')
+@minValue(1)
+@maxValue(20)
+param openAiDeploymentCapacity2 int = 1
+
 @description('Maximum number of Flex Consumption instances to allow for the Function App.')
 @minValue(40)
 @maxValue(1000)
@@ -155,6 +169,26 @@ resource aiModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@202
     }
     raiPolicyName: 'Microsoft.Default'
   }
+}
+
+resource aiModelDeployment2 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  name: openAiDeploymentName2
+  parent: aiServicesAccount
+  sku: {
+    name: 'GlobalStandard'
+    capacity: openAiDeploymentCapacity2
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: openAiModelName2
+      version: openAiModelVersion2
+    }
+    raiPolicyName: 'Microsoft.Default'
+  }
+  dependsOn: [
+    aiModelDeployment
+  ]
 }
 
 resource aiServicesRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -380,6 +414,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_OPENAI_MODEL'
           value: openAiModelName
         }
+        {
+          name: 'AZURE_OPENAI_DEPLOYMENT_2'
+          value: openAiDeploymentName2
+        }
+        {
+          name: 'AZURE_OPENAI_MODEL_2'
+          value: openAiModelName2
+        }
       ]
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -571,5 +613,6 @@ output cosmosRoleDefinitionId string = cosmosSqlDataRole.id
 output aiServicesAccountName string = aiServicesAccount.name
 output aiServicesEndpoint string = 'https://${aiServicesAccount.name}.openai.azure.com/'
 output aiDeploymentName string = openAiDeploymentName
+output aiDeploymentName2 string = openAiDeploymentName2
 output aiHubName string = aiHub.name
 output aiProjectName string = aiProject.name
