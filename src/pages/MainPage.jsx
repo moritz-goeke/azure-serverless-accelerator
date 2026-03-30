@@ -6,38 +6,28 @@ import {
   Box,
   Button,
   CircularProgress,
-  Icon,
+  Collapse,
   IconButton,
-  InputAdornment,
-  LinearProgress,
   TextField,
   Typography,
 } from "@mui/material";
 import axios from "axios";
 import "katex/dist/katex.min.css";
 import * as React from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import AzureLogo from "../assets/azure_logo.png";
 import AiMarkdown from "../components/AiMarkdown";
 import {
-  ACCENT_BLUE,
   AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
-  LIGHT_BLUE,
+  BORDER,
   MODEL_OPTIONS,
-  WHITE,
+  PRIMARY,
+  PRIMARY_DARK,
+  TEXT_LIGHT,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
   costInCentPerInputToken,
   costInCentPerOutputToken,
   customScrollBar,
 } from "../components/consts";
-import { FooterLine } from "../components/Footer";
 import { beautifyCostCentValue } from "../components/helpers";
 import NotificationSnackbar from "../components/NotificationSnackbar";
 import Typewriter from "../components/Typewriter";
@@ -116,6 +106,7 @@ function MainPage() {
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState("");
+  const [showStats, setShowStats] = React.useState(false);
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
@@ -396,638 +387,329 @@ function MainPage() {
     }
   };
 
-  const fontMono = { fontFamily: "Lato", fontSize: 12, letterSpacing: 0.3 };
-  const metricRow = (label, value) => (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <Typography sx={{ ...fontMono, color: "#8fa3ad" }}>{label}</Typography>
-      <Typography sx={{ ...fontMono, fontWeight: 600, color: "#dde7eb" }}>
-        {value}
-      </Typography>
+  const statRow = (label, value) => (
+    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 0.4 }}>
+      <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>{label}</Typography>
+      <Typography sx={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY }}>{value}</Typography>
     </Box>
   );
 
-  const cumulative = React.useMemo(() => {
-    const base = { tokensPrompt: [], tokensCompletion: [], exec: [], cost: [] };
-    chartHistory.reduce((acc, entry, idx) => {
-      const nextIndex = idx + 1;
-      const lastPT = acc.tokensPrompt[acc.tokensPrompt.length - 1]?.value || 0;
-      const lastCT =
-        acc.tokensCompletion[acc.tokensCompletion.length - 1]?.value || 0;
-      const lastExec = acc.exec[acc.exec.length - 1]?.value || 0;
-      const lastCost = acc.cost[acc.cost.length - 1]?.value || 0;
-      acc.tokensPrompt.push({
-        index: nextIndex,
-        value: lastPT + entry.promptTokens,
-      });
-      acc.tokensCompletion.push({
-        index: nextIndex,
-        value: lastCT + entry.completionTokens,
-      });
-      acc.exec.push({
-        index: nextIndex,
-        value: lastExec + entry.executionTime,
-      });
-      acc.cost.push({ index: nextIndex, value: lastCost + entry.cost });
-      return acc;
-    }, base);
-    return base;
-  }, [chartHistory]);
-
-  const chartCard = (title, lines) => (
-    <Box
-      sx={{
-        p: 1.5,
-        background: "#1d272e",
-        borderRadius: 2,
-        border: "1px solid #ffffff12",
-        display: "flex",
-        flexDirection: "column",
-        gap: 0.5,
-        height: 180,
-      }}
-    >
-      <Typography
-        sx={{
-          fontFamily: "Lato",
-          fontSize: 12,
-          fontWeight: 600,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          color: LIGHT_BLUE,
-        }}
-      >
-        {title}
-      </Typography>
-      <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 0.5 }}>
-        {lines.map((l, i) => (
-          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 8,
-                background: l.color,
-                borderRadius: 1,
-              }}
-            />
-            <Typography sx={{ ...fontMono, color: "#8fa3ad", fontSize: 11 }}>
-              {l.label || l.name || ""}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={(() => {
-            const maxLen = Math.max(...lines.map((l) => l.data?.length || 0));
-            const merged = [];
-            for (let i = 0; i < maxLen; i++) {
-              const point = { index: i + 1 };
-              for (let j = 0; j < lines.length; j++) {
-                point[`v${j}`] = lines[j].data?.[i]?.value ?? null;
-              }
-              merged.push(point);
-            }
-            return merged;
-          })()}
-          margin={{ top: 5, right: 8, left: -10, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="2 4" stroke="#27343c" />
-          <XAxis
-            dataKey="index"
-            stroke="#5d6b72"
-            tick={{ fontSize: 10 }}
-            type="number"
-            domain={["dataMin", "dataMax"]}
-          />
-          <YAxis stroke="#5d6b72" tick={{ fontSize: 10 }} />
-          <Tooltip
-            contentStyle={{
-              background: "#223039",
-              border: "1px solid #33505c",
-            }}
-          />
-          {lines.map((l, i) => (
-            <Line
-              key={i}
-              type="monotone"
-              dataKey={`v${i}`}
-              stroke={l.color}
-              dot={false}
-              strokeWidth={2}
-              name={l.label || l.name}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </Box>
-  );
+  const activeModel = MODEL_OPTIONS.find((m) => m.key === selectedModel);
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "#0e1418",
-        color: WHITE,
-        overflow: "hidden",
-        height: "100vh",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column", bgcolor: "#f1f5f9", overflow: "hidden", height: "100vh", fontFamily: "'Inter', sans-serif" }}>
       <NotificationSnackbar
         open={snackbarOpen}
         setOpen={setSnackbarOpen}
         message={snackbarMessage}
       />
-      <Box
-        sx={{
-          height: 64,
-          width: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-
-          background: "linear-gradient(90deg,#162634,#1d3646)",
-          borderBottom: "1px solid #1f2f38",
-        }}
-      >
-        <Box
-          sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}
-        >
-          <Icon
-            sx={{
-              ml: 3,
-              height: 40,
-              width: 40,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <img
-              draggable={false}
-              src={AzureLogo}
-              alt="Azure"
-              style={{ maxHeight: 36, width: "auto", display: "block" }}
-            />
-          </Icon>
-          <Typography
-            sx={{
-              fontFamily: "Lato",
-              fontSize: 18,
-              fontWeight: 400,
-              lineHeight: 1,
-            }}
-          >
-            KI-Chatbot | Schule
-          </Typography>
+      {/* HEADER */}
+      <Box sx={{ height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", bgcolor: "#fff", borderBottom: `1px solid ${BORDER}`, px: 3, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", flexShrink: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ width: 42, height: 42, borderRadius: "12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+            🎓
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: 17, fontWeight: 700, color: TEXT_PRIMARY, lineHeight: 1.2, letterSpacing: -0.3 }}>
+              KI-Chatbot
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: TEXT_SECONDARY, fontWeight: 500 }}>
+              für den Unterricht
+            </Typography>
+          </Box>
         </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 3 }}>
+        <Box sx={{ display: "flex", bgcolor: "#f1f5f9", borderRadius: "12px", p: 0.5 }}>
           {MODEL_OPTIONS.map((m) => (
             <Button
               key={m.key}
-              size="small"
-              variant={selectedModel === m.key ? "contained" : "outlined"}
               onClick={() => setSelectedModel(m.key)}
               disabled={loadingAnswer}
               sx={{
-                textTransform: "none",
-                fontFamily: "Lato",
-                fontSize: 12,
-                borderColor: LIGHT_BLUE,
-                color: selectedModel === m.key ? "#fff" : LIGHT_BLUE,
-                bgcolor: selectedModel === m.key ? ACCENT_BLUE : "transparent",
-                "&:hover": { bgcolor: selectedModel === m.key ? ACCENT_BLUE : "rgba(0,162,184,0.08)" },
-                minWidth: 100,
+                textTransform: "none", borderRadius: "10px", px: 2.5, py: 0.8,
+                fontSize: 13, fontWeight: 600, minWidth: 130,
+                bgcolor: selectedModel === m.key ? "#fff" : "transparent",
+                color: selectedModel === m.key ? PRIMARY : TEXT_SECONDARY,
+                boxShadow: selectedModel === m.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                "&:hover": { bgcolor: selectedModel === m.key ? "#fff" : "#e2e8f0" },
+                transition: "all 0.2s ease",
               }}
             >
-              {m.label}
+              <span style={{ marginRight: 6 }}>{m.icon}</span>{m.label}
             </Button>
           ))}
         </Box>
       </Box>
+
+      {/* MAIN CONTENT */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
-        <Box
-          sx={{
-            width: 360,
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-            gap: 1.5,
-            p: 2,
-            borderRight: "1px solid #1f2f38",
-            bgcolor: "#121b21",
-            minHeight: 0,
-          }}
-        >
-          <Box
-            sx={{
-              p: 1.5,
-              border: "1px solid #1f3640",
-              borderRadius: 2,
-              background: "linear-gradient(145deg,#15232c,#1d2f38)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 0.6,
-            }}
-          >
-            {metricRow("Prompt Tokens", promptTokens)}
-            {metricRow("Completion Tokens", completionTokens)}
-            {metricRow(
-              "AI Cost (ct)",
-              beautifyCostCentValue(sessionCostConsumption)
-            )}
-            {metricRow("Exec Time (ms)", functionExecutionTime)}
-            {metricRow(
-              "Func Cost (ct)",
-              beautifyCostCentValue(functionComputeCost)
-            )}
-            {metricRow("Total (ct)", beautifyCostCentValue(totalOverallCost))}
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-              overflowY: "auto",
-              flex: 1,
-              minHeight: 0,
-              pr: 0.5,
-              ...customScrollBar(),
-            }}
-          >
-            {chartCard("Tokens", [
-              {
-                data: cumulative.tokensPrompt,
-                color: "#3ba9ff",
-                label: "Prompt",
-              },
-              {
-                data: cumulative.tokensCompletion,
-                color: "#36d9c6",
-                label: "Completion",
-              },
-            ])}
-            {chartCard("Computation Time (ms)", [
-              { data: cumulative.exec, color: "#ffb347", label: "Exec (ms)" },
-            ])}
-            {chartCard("Total costs (ct)", [
-              { data: cumulative.cost, color: "#e45b78", label: "Cost (ct)" },
-            ])}
-          </Box>
-        </Box>
-        <Box sx={{ flex: 1, display: "flex", minWidth: 0, overflow: "hidden" }}>
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              minWidth: 0,
-              p: 2,
-              gap: 1.5,
-              bgcolor: "#0f181d",
-            }}
-          >
-            <Box
-              ref={messagesRef}
+        {/* LEFT SIDEBAR - Conversations + Stats */}
+        <Box sx={{ width: 320, flexShrink: 0, bgcolor: "#fff", borderRight: `1px solid ${BORDER}`, display: "flex", flexDirection: "column" }}>
+          {/* Actions */}
+          <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+            <Button
+              variant="contained"
+              startIcon={<AddCircleOutlineIcon />}
+              onClick={handleCreateConversation}
+              disabled={sidebarBusy || sidebarLoading || writing}
               sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                overflowY: "auto",
-                border: "1px solid #1f2f38",
-                borderRadius: 2,
-                background: "#142229",
-                p: 2,
-                ...customScrollBar(),
-                minHeight: 0,
+                textTransform: "none", fontWeight: 600, borderRadius: "12px",
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                boxShadow: "0 4px 14px rgba(99,102,241,0.3)",
+                py: 1.2, fontSize: 14,
+                "&:hover": { background: "linear-gradient(135deg, #4f46e5, #7c3aed)" },
               }}
             >
-              <Box sx={{ flex: 1, minHeight: 0 }} />
-              {chatArray.map((chatObject, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems:
-                      chatObject?.from === "user" ? "flex-end" : "flex-start",
-                    mb: 1.4,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      px: 2,
-                      py: 1,
-                      borderRadius: 3,
-                      bgcolor:
-                        chatObject?.from === "user" ? "#ffffff" : "#e7f1f5",
-                      color: "#102027",
-                      boxShadow: 2,
-                      maxWidth: "80%",
-                    }}
-                  >
-                    {chatObject?.from === "gpt" &&
-                    !chatObject?.error &&
-                    typewriterIndex === index ? (
-                      <Typewriter
-                        text={chatObject.message}
-                        delay={10}
-                        skipAnimation={skipAnimation}
-                        setSkipAnimation={setSkipAnimation}
-                        setWriting={setWriting}
-                        onComplete={() => setTypewriterIndex(null)}
-                      />
-                    ) : (
-                      <AiMarkdown>{chatObject.message}</AiMarkdown>
-                    )}
-                  </Box>
-                </Box>
-              ))}
-              {loadingAnswer && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignSelf: "flex-start",
-                    alignItems: "center",
-                    mt: 1,
-                  }}
-                >
-                  <LinearProgress
-                    sx={{
-                      width: 140,
-                      backgroundColor: "#1d3038",
-                      "& .MuiLinearProgress-bar": {
-                        backgroundColor: LIGHT_BLUE,
-                      },
-                    }}
-                  />
-                </Box>
-              )}
-            </Box>
-            <TextField
-              disabled={writing}
-              variant="filled"
-              placeholder="Enter your message."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage(inputText, true);
-                }
-              }}
-              size="small"
-              sx={{
-                width: 1,
-                ".MuiInputBase-root": {
-                  borderRadius: 3,
-                  py: 1,
-                  px: 2,
-                  display: "flex",
-                  height: 76,
-                  bgcolor: "#1b2a31",
-                  color: WHITE,
-                  boxShadow: "inset 0 0 0 1px #22333b",
-                },
-              }}
-              slotProps={{
-                htmlInput: {
-                  ref: inputRef,
-                  style: { fontSize: 15, lineHeight: 1.3 },
-                },
-                input: {
-                  disableUnderline: true,
-                  endAdornment: (
-                    <InputAdornment position="end" sx={{ mr: 0.5 }}>
-                      {writing ? (
-                        <IconButton onClick={() => setSkipAnimation(true)}>
-                          <StopRoundedIcon sx={{ color: ACCENT_BLUE }} />
-                        </IconButton>
-                      ) : (
-                        <IconButton
-                          onClick={() => sendMessage(inputText, true)}
-                          disabled={writing}
-                        >
-                          <SendRoundedIcon sx={{ color: ACCENT_BLUE }} />
-                        </IconButton>
-                      )}
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              multiline
-              maxRows={2}
-              spellCheck={false}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-            />
-          </Box>
-          <Box
-            sx={{
-              width: 260,
-              flexShrink: 0,
-              borderLeft: "1px solid #1f2f38",
-              bgcolor: "#111920",
-              display: "flex",
-              flexDirection: "column",
-              gap: 1,
-              p: 1.5,
-              position: "relative",
-            }}
-          >
-            <Typography
-              sx={{
-                fontFamily: "Lato",
-                fontSize: 12,
-                letterSpacing: 0.6,
-                textTransform: "uppercase",
-                color: "#6d838f",
-              }}
-            >
-              Conversations
-            </Typography>
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddCircleOutlineIcon />}
-                onClick={handleCreateConversation}
-                disabled={sidebarBusy || sidebarLoading || writing}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  bgcolor: "#1e6c8c",
-                  "&:hover": { bgcolor: "#2180a5" },
-                }}
-              >
-                New Conversation
-              </Button>
+              Neues Gespräch
+            </Button>
+            <Box sx={{ display: "flex", gap: 1 }}>
               <Button
                 variant="outlined"
                 size="small"
                 onClick={handleSaveConversation}
-                disabled={
-                  sidebarBusy || sidebarLoading || writing || loadingAnswer
-                }
+                fullWidth
+                disabled={sidebarBusy || sidebarLoading || writing || loadingAnswer}
                 sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  borderColor: "#2f5667",
-                  color: "#b7c6ce",
-                  "&:hover": { borderColor: "#3e6f84" },
+                  textTransform: "none", fontWeight: 600, borderRadius: "10px",
+                  borderColor: BORDER, color: TEXT_SECONDARY,
+                  "&:hover": { borderColor: PRIMARY, color: PRIMARY, bgcolor: "#f5f3ff" },
                 }}
               >
-                Save Conversation
+                💾 Speichern
               </Button>
             </Box>
             <TextField
-              label="Title"
-              variant="filled"
+              label="Titel"
+              variant="outlined"
               size="small"
+              fullWidth
               value={titleDraft}
               onChange={(e) => setTitleDraft(e.target.value)}
               disabled={sidebarBusy}
-              helperText=" "
               sx={{
-                ".MuiInputBase-root": {
-                  borderRadius: 2,
-                  bgcolor: "#16232b",
-                  color: WHITE,
-                  px: 1.2,
-                },
-                "& .MuiInputBase-root:before": { borderBottom: "none" },
-                "& .MuiInputBase-root:after": { borderBottom: "none" },
-                ".MuiFormLabel-root": { color: "#7c8d96" },
-              }}
-              slotProps={{
-                input: {
-                  disableUnderline: true,
-                },
+                "& .MuiOutlinedInput-root": { borderRadius: "10px", bgcolor: "#f8fafc", fontSize: 13 },
+                "& .MuiInputLabel-root": { color: TEXT_LIGHT },
               }}
             />
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: 1,
-                overflowY: "auto",
-                ...customScrollBar("#34505e"),
-              }}
-            >
-              {sidebarLoading ? (
-                <Typography sx={{ color: "#7d909a", fontSize: 13 }}>
-                  Loading conversations...
-                </Typography>
-              ) : conversations.length ? (
-                conversations.map((conversation) => {
-                  const isActive = conversation.id === activeConversationId;
-                  return (
-                    <Box
-                      key={conversation.id}
-                      onClick={() => handleSelectConversation(conversation.id)}
-                      sx={{
-                        px: 1.2,
-                        py: 1,
-                        borderRadius: 2,
-                        border: isActive
-                          ? "1px solid #2f5667"
-                          : "1px solid transparent",
-                        bgcolor: isActive ? "#17242c" : "transparent",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 1,
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0, mr: 0.5 }}>
-                        <Typography
-                          sx={{
-                            fontSize: 13,
-                            fontWeight: isActive ? 600 : 500,
-                            color: WHITE,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {conversation.title || "(Untitled)"}
-                        </Typography>
-                        <Typography
-                          sx={{
-                            fontSize: 11,
-                            color: "#7b8c95",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {formatConversationTimestamp(
-                            conversation.updatedAt || conversation.createdAt
-                          )}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={(event) =>
-                          handleDeleteConversation(event, conversation.id)
-                        }
-                        disabled={sidebarBusy}
-                        sx={{ color: "#7d8f98" }}
-                      >
-                        <DeleteOutlineOutlinedIcon fontSize="small" />
-                      </IconButton>
+          </Box>
+
+          {/* Conversation list */}
+          <Box sx={{ flex: 1, overflowY: "auto", p: 1.5, display: "flex", flexDirection: "column", gap: 0.5, ...customScrollBar() }}>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: TEXT_LIGHT, px: 1, mb: 0.5 }}>
+              Gespräche
+            </Typography>
+            {sidebarLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress size={24} sx={{ color: PRIMARY }} />
+              </Box>
+            ) : conversations.length ? (
+              conversations.map((conversation) => {
+                const isActive = conversation.id === activeConversationId;
+                return (
+                  <Box
+                    key={conversation.id}
+                    onClick={() => handleSelectConversation(conversation.id)}
+                    sx={{
+                      px: 1.5, py: 1.2, borderRadius: "10px", cursor: "pointer",
+                      bgcolor: isActive ? "#f5f3ff" : "transparent",
+                      borderLeft: isActive ? "3px solid #6366f1" : "3px solid transparent",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      transition: "all 0.15s ease",
+                      "&:hover": { bgcolor: isActive ? "#f5f3ff" : "#f8fafc" },
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {conversation.title || "(Ohne Titel)"}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: TEXT_LIGHT }}>
+                        {formatConversationTimestamp(conversation.updatedAt || conversation.createdAt)}
+                      </Typography>
                     </Box>
-                  );
-                })
-              ) : (
-                <Typography sx={{ color: "#7d909a", fontSize: 13 }}>
-                  No conversations yet
+                    <IconButton
+                      size="small"
+                      onClick={(event) => handleDeleteConversation(event, conversation.id)}
+                      disabled={sidebarBusy}
+                      sx={{ color: "#cbd5e1", "&:hover": { color: "#ef4444" } }}
+                    >
+                      <DeleteOutlineOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                );
+              })
+            ) : (
+              <Box sx={{ textAlign: "center", py: 6 }}>
+                <Typography sx={{ fontSize: 32, mb: 1 }}>💬</Typography>
+                <Typography sx={{ color: TEXT_LIGHT, fontSize: 13 }}>
+                  Noch keine Gespräche
                 </Typography>
-              )}
-            </Box>
-            {sidebarBusy && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  bgcolor: "rgba(15,24,29,0.8)",
-                  borderRadius: 0,
-                  zIndex: 2,
-                }}
-              >
-                <CircularProgress
-                  size={28}
-                  thickness={4}
-                  sx={{ color: LIGHT_BLUE }}
-                />
               </Box>
             )}
           </Box>
+
+          {/* Collapsible Stats */}
+          <Box sx={{ borderTop: "1px solid #f1f5f9" }}>
+            <Box
+              onClick={() => setShowStats(!showStats)}
+              sx={{ px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", "&:hover": { bgcolor: "#f8fafc" }, transition: "background 0.15s" }}
+            >
+              <Typography sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: TEXT_LIGHT }}>
+                📊 Statistiken
+              </Typography>
+              <Typography sx={{ fontSize: 16, color: TEXT_LIGHT, lineHeight: 1, transition: "transform 0.2s", transform: showStats ? "rotate(180deg)" : "rotate(0)" }}>
+                ▾
+              </Typography>
+            </Box>
+            <Collapse in={showStats}>
+              <Box sx={{ px: 2, pb: 2, display: "flex", flexDirection: "column", gap: 0.3 }}>
+                {statRow("Prompt Tokens", promptTokens)}
+                {statRow("Completion Tokens", completionTokens)}
+                {statRow("KI-Kosten", beautifyCostCentValue(sessionCostConsumption))}
+                {statRow("Ausführungszeit", `${functionExecutionTime}ms`)}
+                {statRow("Funktionskosten", beautifyCostCentValue(functionComputeCost))}
+                {statRow("Gesamt", beautifyCostCentValue(totalOverallCost))}
+              </Box>
+            </Collapse>
+          </Box>
+        </Box>
+        {/* CHAT AREA */}
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", bgcolor: "#f8fafc", minWidth: 0 }}>
+          {/* Active model indicator */}
+          <Box sx={{ px: 3, py: 1, borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 1 }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#10b981" }} />
+            <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>
+              Aktives Modell: <strong>{activeModel?.label}</strong> — {activeModel?.description}
+            </Typography>
+          </Box>
+
+          {/* Messages */}
+          <Box
+            ref={messagesRef}
+            sx={{ flex: 1, overflowY: "auto", px: 3, py: 2, display: "flex", flexDirection: "column", ...customScrollBar("#cbd5e1"), minHeight: 0 }}
+          >
+            <Box sx={{ flex: 1, minHeight: 0 }} />
+            {chatArray.map((chatObject, index) => (
+              <Box
+                key={index}
+                sx={{ display: "flex", justifyContent: chatObject?.from === "user" ? "flex-end" : "flex-start", mb: 2, gap: 1.5, alignItems: "flex-start" }}
+              >
+                {chatObject?.from === "gpt" && (
+                  <Box sx={{ width: 36, height: 36, borderRadius: "10px", flexShrink: 0, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, mt: 0.5, boxShadow: "0 2px 8px rgba(99,102,241,0.25)" }}>
+                    🤖
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    px: 2.5, py: 1.5, maxWidth: "75%",
+                    borderRadius: chatObject?.from === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                    bgcolor: chatObject?.from === "user" ? PRIMARY : "#fff",
+                    color: chatObject?.from === "user" ? "#fff" : TEXT_PRIMARY,
+                    boxShadow: chatObject?.from === "user" ? "0 4px 14px rgba(99,102,241,0.25)" : "0 1px 4px rgba(0,0,0,0.06)",
+                    border: chatObject?.from === "user" ? "none" : `1px solid ${BORDER}`,
+                  }}
+                >
+                  {chatObject?.from === "gpt" &&
+                    !chatObject?.error &&
+                    typewriterIndex === index ? (
+                    <Typewriter
+                      text={chatObject.message}
+                      delay={10}
+                      skipAnimation={skipAnimation}
+                      setSkipAnimation={setSkipAnimation}
+                      setWriting={setWriting}
+                      onComplete={() => setTypewriterIndex(null)}
+                    />
+                  ) : (
+                    <AiMarkdown>{chatObject.message}</AiMarkdown>
+                  )}
+                </Box>
+                {chatObject?.from === "user" && (
+                  <Box sx={{ width: 36, height: 36, borderRadius: "10px", flexShrink: 0, bgcolor: "#e0e7ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, mt: 0.5 }}>
+                    👤
+                  </Box>
+                )}
+              </Box>
+            ))}
+            {loadingAnswer && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+                <Box sx={{ width: 36, height: 36, borderRadius: "10px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, boxShadow: "0 2px 8px rgba(99,102,241,0.25)" }}>
+                  🤖
+                </Box>
+                <Box sx={{ px: 2.5, py: 2, borderRadius: "18px 18px 18px 4px", bgcolor: "#fff", border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    {[0, 1, 2].map((i) => (
+                      <Box key={i} sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: PRIMARY, animation: "dotPulse 1.4s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
+                    ))}
+                  </Box>
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          {/* Input Area */}
+          <Box sx={{ px: 3, pb: 2.5, pt: 1 }}>
+            <Box
+              sx={{
+                display: "flex", alignItems: "flex-end", gap: 1.5,
+                p: 1.5, bgcolor: "#fff", borderRadius: "16px",
+                border: `1px solid ${BORDER}`,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+                "&:focus-within": { borderColor: PRIMARY, boxShadow: "0 4px 20px rgba(99,102,241,0.1)" },
+              }}
+            >
+              <TextField
+                disabled={writing}
+                variant="standard"
+                fullWidth
+                multiline
+                maxRows={4}
+                placeholder="Stelle eine Frage zum Unterrichtsthema..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(inputText, true);
+                  }
+                }}
+                slotProps={{
+                  htmlInput: { ref: inputRef, style: { fontSize: 15, lineHeight: 1.5 } },
+                  input: { disableUnderline: true },
+                }}
+                sx={{ "& .MuiInputBase-root": { px: 1 } }}
+                spellCheck={false}
+              />
+              {writing ? (
+                <IconButton onClick={() => setSkipAnimation(true)} sx={{ bgcolor: "#fef2f2", "&:hover": { bgcolor: "#fee2e2" }, flexShrink: 0 }}>
+                  <StopRoundedIcon sx={{ color: "#ef4444" }} />
+                </IconButton>
+              ) : (
+                <IconButton
+                  onClick={() => sendMessage(inputText, true)}
+                  disabled={writing || !inputText.trim()}
+                  sx={{
+                    bgcolor: PRIMARY, "&:hover": { bgcolor: PRIMARY_DARK },
+                    "&.Mui-disabled": { bgcolor: "#e2e8f0" },
+                    transition: "all 0.2s ease", flexShrink: 0,
+                  }}
+                >
+                  <SendRoundedIcon sx={{ color: "#fff", fontSize: 20 }} />
+                </IconButton>
+              )}
+            </Box>
+            <Typography sx={{ textAlign: "center", fontSize: 11, color: TEXT_LIGHT, mt: 1.5 }}>
+              KI-Chatbot für Schüler*innen im Unterricht · Powered by Azure
+            </Typography>
+          </Box>
         </Box>
       </Box>
-      <Box
-        sx={{
-          width: 1,
-          textAlign: "center",
-          py: 0.7,
-          borderTop: "1px solid #1f2f38",
-          bgcolor: "#0b1317",
-        }}
-      >
-        <FooterLine typographySx={{ fontSize: 11, color: "#66767e" }}>
-          KI-Chatbot für Schüler*innen • Powered by Azure
-        </FooterLine>
-      </Box>
+
+      {/* Sidebar busy overlay */}
+      {sidebarBusy && (
+        <Box sx={{ position: "fixed", top: 0, left: 0, width: 320, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "rgba(255,255,255,0.8)", backdropFilter: "blur(4px)", zIndex: 10 }}>
+          <CircularProgress size={28} sx={{ color: PRIMARY }} />
+        </Box>
+      )}
     </Box>
   );
 }
