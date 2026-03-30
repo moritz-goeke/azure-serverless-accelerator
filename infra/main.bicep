@@ -87,6 +87,7 @@ var aiServicesAccountBase = toLower('${normalizedPrefix}${uniqueSuffix}ais')
 var aiServicesAccountName = substring(aiServicesAccountBase, 0, min(length(aiServicesAccountBase), 44))
 var keyVaultName = toLower('kv${normalizedPrefix}${uniqueSuffix}')
 var aiHubName = toLower('hub-${namePrefix}-${uniqueSuffix}')
+var aiHubManagedRgName = toLower('rg-${namePrefix}-hub-${uniqueSuffix}')
 var aiProjectName = toLower('proj-${namePrefix}-${uniqueSuffix}')
 var functionIdentityName = toLower('id-${namePrefix}-${uniqueSuffix}')
 var dataRoleDefinitionName = guid(cosmosAccountName, 'sql-data-role')
@@ -172,7 +173,7 @@ resource aiServicesRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
 // ---------------------------------------------------------------------------
 // Azure AI Foundry Hub + Project
 // ---------------------------------------------------------------------------
-resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
+resource aiHub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
   name: aiHubName
   location: location
   kind: 'Hub'
@@ -189,10 +190,12 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
     storageAccount: storageAccount.id
     keyVault: keyVault.id
     applicationInsights: appInsights.id
+    #disable-next-line BCP037
+    managedResourceGroupResourceId: subscriptionResourceId('Microsoft.Resources/resourceGroups', aiHubManagedRgName)
   }
 }
 
-resource aiProject 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
+resource aiProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
   name: aiProjectName
   location: location
   kind: 'Project'

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1230258839205545113"
+      "templateHash": "3199436516359866825"
     }
   },
   "parameters": {
@@ -183,6 +183,7 @@
     "aiServicesAccountName": "[substring(variables('aiServicesAccountBase'), 0, min(length(variables('aiServicesAccountBase')), 44))]",
     "keyVaultName": "[toLower(format('kv{0}{1}', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
     "aiHubName": "[toLower(format('hub-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "aiHubManagedRgName": "[toLower(format('rg-{0}-hub-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "aiProjectName": "[toLower(format('proj-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "functionIdentityName": "[toLower(format('id-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "dataRoleDefinitionName": "[guid(variables('cosmosAccountName'), 'sql-data-role')]",
@@ -268,7 +269,7 @@
     },
     {
       "type": "Microsoft.MachineLearningServices/workspaces",
-      "apiVersion": "2024-10-01",
+      "apiVersion": "2025-01-01-preview",
       "name": "[variables('aiHubName')]",
       "location": "[parameters('location')]",
       "kind": "Hub",
@@ -284,7 +285,8 @@
         "friendlyName": "[format('{0} AI Hub', parameters('namePrefix'))]",
         "storageAccount": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
         "keyVault": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
-        "applicationInsights": "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]"
+        "applicationInsights": "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+        "managedResourceGroupResourceId": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('aiHubManagedRgName'))]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
@@ -294,7 +296,7 @@
     },
     {
       "type": "Microsoft.MachineLearningServices/workspaces",
-      "apiVersion": "2024-10-01",
+      "apiVersion": "2025-01-01-preview",
       "name": "[variables('aiProjectName')]",
       "location": "[parameters('location')]",
       "kind": "Project",
