@@ -71,7 +71,6 @@ param functionMaxInstanceCount int = 100
 ])
 param functionInstanceMemoryMB int = 2048
 
-
 @description('Optional tags applied to every resource in this deployment.')
 param tags object = {}
 
@@ -161,7 +160,10 @@ resource aiServicesRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
   name: guid(aiServicesAccount.id, functionIdentity.id, 'aoai-user')
   scope: aiServicesAccount
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    )
     principalId: functionIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
@@ -187,21 +189,6 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
     storageAccount: storageAccount.id
     keyVault: keyVault.id
     applicationInsights: appInsights.id
-  }
-}
-
-resource aiHubConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-10-01' = {
-  name: 'Default_AzureOpenAI'
-  parent: aiHub
-  properties: {
-    category: 'AzureOpenAI'
-    target: 'https://${aiServicesAccount.name}.openai.azure.com/'
-    authType: 'AAD'
-    isSharedToAll: true
-    metadata: {
-      ApiType: 'Azure'
-      ResourceId: aiServicesAccount.id
-    }
   }
 }
 
@@ -271,7 +258,10 @@ resource functionStorageBlobRoleAssignment 'Microsoft.Authorization/roleAssignme
   name: guid(storageAccount.id, functionIdentity.id, 'blob-data-contributor')
   scope: storageAccount
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+    )
     principalId: functionIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }

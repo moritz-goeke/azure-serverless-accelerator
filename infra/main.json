@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "17059388496657196954"
+      "templateHash": "1230258839205545113"
     }
   },
   "parameters": {
@@ -290,25 +290,6 @@
         "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.MachineLearningServices/workspaces/connections",
-      "apiVersion": "2024-10-01",
-      "name": "[format('{0}/{1}', variables('aiHubName'), 'Default_AzureOpenAI')]",
-      "properties": {
-        "category": "AzureOpenAI",
-        "target": "[format('https://{0}.openai.azure.com/', variables('aiServicesAccountName'))]",
-        "authType": "AAD",
-        "isSharedToAll": true,
-        "metadata": {
-          "ApiType": "Azure",
-          "ResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('aiHubName'))]",
-        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]"
       ]
     },
     {
