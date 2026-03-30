@@ -84,8 +84,11 @@ var functionAppName = toLower('func-${namePrefix}-${uniqueSuffix}')
 var staticWebAppName = toLower('swa-${namePrefix}-${uniqueSuffix}')
 var cosmosAccountBase = toLower('${normalizedPrefix}${uniqueSuffix}cos')
 var cosmosAccountName = substring(cosmosAccountBase, 0, min(length(cosmosAccountBase), 44))
-var openAiAccountBase = toLower('${normalizedPrefix}${uniqueSuffix}aoai')
-var openAiAccountName = substring(openAiAccountBase, 0, min(length(openAiAccountBase), 44))
+var aiServicesAccountBase = toLower('${normalizedPrefix}${uniqueSuffix}ais')
+var aiServicesAccountName = substring(aiServicesAccountBase, 0, min(length(aiServicesAccountBase), 44))
+var keyVaultName = toLower('kv${normalizedPrefix}${uniqueSuffix}')
+var aiHubName = toLower('hub-${namePrefix}-${uniqueSuffix}')
+var aiProjectName = toLower('proj-${namePrefix}-${uniqueSuffix}')
 var functionIdentityName = toLower('id-${namePrefix}-${uniqueSuffix}')
 var dataRoleDefinitionName = guid(cosmosAccountName, 'sql-data-role')
 var dataRoleAssignmentName = guid(functionAppName, cosmosContainerName, 'sql-data-assignment')
@@ -101,23 +104,45 @@ resource functionIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023
   tags: allTags
 }
 
-resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
-  name: openAiAccountName
+// ---------------------------------------------------------------------------
+// Key Vault (required by AI Foundry Hub)
+// ---------------------------------------------------------------------------
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: keyVaultName
+  location: location
+  tags: allTags
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 7
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Azure AI Services (replaces standalone Azure OpenAI resource)
+// ---------------------------------------------------------------------------
+resource aiServicesAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: aiServicesAccountName
   location: openAiLocation
-  kind: 'OpenAI'
+  kind: 'AIServices'
   sku: {
     name: openAiSkuName
   }
   tags: allTags
   properties: {
-    customSubDomainName: openAiAccountName
+    customSubDomainName: aiServicesAccountName
     publicNetworkAccess: 'Enabled'
   }
 }
 
-resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+resource aiModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   name: openAiDeploymentName
-  parent: openAiAccount
+  parent: aiServicesAccount
   sku: {
     name: 'GlobalStandard'
     capacity: openAiDeploymentCapacity
@@ -132,13 +157,69 @@ resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024
   }
 }
 
-resource openAiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(openAiAccount.id, functionIdentity.id, 'aoai-user')
-  scope: openAiAccount
+resource aiServicesRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aiServicesAccount.id, functionIdentity.id, 'aoai-user')
+  scope: aiServicesAccount
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
     principalId: functionIdentity.properties.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Azure AI Foundry Hub + Project
+// ---------------------------------------------------------------------------
+resource aiHub 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
+  name: aiHubName
+  location: location
+  kind: 'Hub'
+  tags: allTags
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    friendlyName: '${namePrefix} AI Hub'
+    storageAccount: storageAccount.id
+    keyVault: keyVault.id
+    applicationInsights: appInsights.id
+  }
+}
+
+resource aiHubConnection 'Microsoft.MachineLearningServices/workspaces/connections@2024-10-01' = {
+  name: 'Default_AzureOpenAI'
+  parent: aiHub
+  properties: {
+    category: 'AzureOpenAI'
+    target: 'https://${aiServicesAccount.name}.openai.azure.com/'
+    authType: 'AAD'
+    isSharedToAll: true
+    metadata: {
+      ApiType: 'Azure'
+      ResourceId: aiServicesAccount.id
+    }
+  }
+}
+
+resource aiProject 'Microsoft.MachineLearningServices/workspaces@2024-10-01' = {
+  name: aiProjectName
+  location: location
+  kind: 'Project'
+  tags: allTags
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    friendlyName: '${namePrefix} AI Project'
+    hubResourceId: aiHub.id
   }
 }
 
@@ -283,7 +364,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'AZURE_OPENAI_ENDPOINT'
-          value: openAiAccount.properties.endpoint
+          value: 'https://${aiServicesAccount.name}.openai.azure.com/'
         }
         {
           name: 'AZURE_OPENAI_DEPLOYMENT'
@@ -481,6 +562,8 @@ output cosmosAccountEndpoint string = cosmosAccount.properties.documentEndpoint
 output cosmosDatabaseOutputName string = cosmosDatabaseName
 output cosmosContainerOutputName string = cosmosContainerName
 output cosmosRoleDefinitionId string = cosmosSqlDataRole.id
-output openAiAccountOutputName string = openAiAccount.name
-output openAiEndpoint string = openAiAccount.properties.endpoint
-output openAiDeploymentOutputName string = openAiDeploymentName
+output aiServicesAccountName string = aiServicesAccount.name
+output aiServicesEndpoint string = 'https://${aiServicesAccount.name}.openai.azure.com/'
+output aiDeploymentName string = openAiDeploymentName
+output aiHubName string = aiHub.name
+output aiProjectName string = aiProject.name

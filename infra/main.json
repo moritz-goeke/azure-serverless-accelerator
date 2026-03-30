@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.39.26.7824",
-      "templateHash": "1840769355727345660"
+      "version": "0.41.2.15936",
+      "templateHash": "17059388496657196954"
     }
   },
   "parameters": {
@@ -97,6 +97,50 @@
         "description": "Azure region used specifically for Cosmos DB resources."
       }
     },
+    "openAiLocation": {
+      "type": "string",
+      "defaultValue": "swedencentral",
+      "metadata": {
+        "description": "Azure region where the Azure OpenAI resource is deployed. Choose a region that supports the selected model."
+      }
+    },
+    "openAiSkuName": {
+      "type": "string",
+      "defaultValue": "S0",
+      "metadata": {
+        "description": "SKU used for the Azure OpenAI account."
+      }
+    },
+    "openAiDeploymentName": {
+      "type": "string",
+      "defaultValue": "gpt5mini",
+      "metadata": {
+        "description": "Name assigned to the Azure OpenAI deployment."
+      }
+    },
+    "openAiModelName": {
+      "type": "string",
+      "defaultValue": "gpt-5-mini",
+      "metadata": {
+        "description": "Model name configured in the Azure OpenAI deployment."
+      }
+    },
+    "openAiModelVersion": {
+      "type": "string",
+      "defaultValue": "2025-08-07",
+      "metadata": {
+        "description": "Model version configured in the Azure OpenAI deployment."
+      }
+    },
+    "openAiDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 20,
+      "metadata": {
+        "description": "Capacity allocated to the Azure OpenAI deployment."
+      }
+    },
     "functionMaxInstanceCount": {
       "type": "int",
       "defaultValue": 100,
@@ -135,6 +179,11 @@
     "staticWebAppName": "[toLower(format('swa-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "cosmosAccountBase": "[toLower(format('{0}{1}cos', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
     "cosmosAccountName": "[substring(variables('cosmosAccountBase'), 0, min(length(variables('cosmosAccountBase')), 44))]",
+    "aiServicesAccountBase": "[toLower(format('{0}{1}ais', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
+    "aiServicesAccountName": "[substring(variables('aiServicesAccountBase'), 0, min(length(variables('aiServicesAccountBase')), 44))]",
+    "keyVaultName": "[toLower(format('kv{0}{1}', variables('normalizedPrefix'), variables('uniqueSuffix')))]",
+    "aiHubName": "[toLower(format('hub-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+    "aiProjectName": "[toLower(format('proj-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "functionIdentityName": "[toLower(format('id-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
     "dataRoleDefinitionName": "[guid(variables('cosmosAccountName'), 'sql-data-role')]",
     "dataRoleAssignmentName": "[guid(variables('functionAppName'), parameters('cosmosContainerName'), 'sql-data-assignment')]",
@@ -149,6 +198,140 @@
       "name": "[variables('functionIdentityName')]",
       "location": "[parameters('location')]",
       "tags": "[variables('allTags')]"
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2024-10-01",
+      "name": "[variables('aiServicesAccountName')]",
+      "location": "[parameters('openAiLocation')]",
+      "kind": "AIServices",
+      "sku": {
+        "name": "[parameters('openAiSkuName')]"
+      },
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "customSubDomainName": "[variables('aiServicesAccountName')]",
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('aiServicesAccountName'), parameters('openAiDeploymentName'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": "[parameters('openAiDeploymentCapacity')]"
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('openAiModelName')]",
+          "version": "[parameters('openAiModelVersion')]"
+        },
+        "raiPolicyName": "Microsoft.Default"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), 'aoai-user')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces",
+      "apiVersion": "2024-10-01",
+      "name": "[variables('aiHubName')]",
+      "location": "[parameters('location')]",
+      "kind": "Hub",
+      "tags": "[variables('allTags')]",
+      "sku": {
+        "name": "Basic",
+        "tier": "Basic"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "friendlyName": "[format('{0} AI Hub', parameters('namePrefix'))]",
+        "storageAccount": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "keyVault": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "applicationInsights": "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces/connections",
+      "apiVersion": "2024-10-01",
+      "name": "[format('{0}/{1}', variables('aiHubName'), 'Default_AzureOpenAI')]",
+      "properties": {
+        "category": "AzureOpenAI",
+        "target": "[format('https://{0}.openai.azure.com/', variables('aiServicesAccountName'))]",
+        "authType": "AAD",
+        "isSharedToAll": true,
+        "metadata": {
+          "ApiType": "Azure",
+          "ResourceId": "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('aiHubName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.MachineLearningServices/workspaces",
+      "apiVersion": "2024-10-01",
+      "name": "[variables('aiProjectName')]",
+      "location": "[parameters('location')]",
+      "kind": "Project",
+      "tags": "[variables('allTags')]",
+      "sku": {
+        "name": "Basic",
+        "tier": "Basic"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "friendlyName": "[format('{0} AI Project', parameters('namePrefix'))]",
+        "hubResourceId": "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('aiHubName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.MachineLearningServices/workspaces', variables('aiHubName'))]"
+      ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts",
@@ -199,7 +382,7 @@
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', variables('storageAccountName'))]",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
       "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), 'blob-data-contributor')]",
       "properties": {
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
@@ -295,6 +478,18 @@
             {
               "name": "COSMOS_CONTAINER_NAME",
               "value": "[parameters('cosmosContainerName')]"
+            },
+            {
+              "name": "AZURE_OPENAI_ENDPOINT",
+              "value": "[format('https://{0}.openai.azure.com/', variables('aiServicesAccountName'))]"
+            },
+            {
+              "name": "AZURE_OPENAI_DEPLOYMENT",
+              "value": "[parameters('openAiDeploymentName')]"
+            },
+            {
+              "name": "AZURE_OPENAI_MODEL",
+              "value": "[parameters('openAiModelName')]"
             }
           ],
           "ftpsState": "Disabled",
@@ -323,6 +518,7 @@
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesAccountName'))]",
         "[resourceId('Microsoft.Insights/components', format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
         "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosAccountName'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName'))]",
@@ -330,6 +526,17 @@
         "[resourceId('Microsoft.Web/serverfarms', variables('functionPlanName'))]",
         "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('functionIdentityName')), 'blob-data-contributor'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+      "apiVersion": "2023-12-01",
+      "name": "[format('{0}/{1}', variables('functionAppName'), 'scm')]",
+      "properties": {
+        "allow": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
       ]
     },
     {
@@ -547,6 +754,26 @@
     "cosmosRoleDefinitionId": {
       "type": "string",
       "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', variables('cosmosAccountName'), variables('dataRoleDefinitionName'))]"
+    },
+    "aiServicesAccountName": {
+      "type": "string",
+      "value": "[variables('aiServicesAccountName')]"
+    },
+    "aiServicesEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.openai.azure.com/', variables('aiServicesAccountName'))]"
+    },
+    "aiDeploymentName": {
+      "type": "string",
+      "value": "[parameters('openAiDeploymentName')]"
+    },
+    "aiHubName": {
+      "type": "string",
+      "value": "[variables('aiHubName')]"
+    },
+    "aiProjectName": {
+      "type": "string",
+      "value": "[variables('aiProjectName')]"
     }
   }
 }
