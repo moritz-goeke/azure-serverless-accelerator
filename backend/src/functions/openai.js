@@ -6,10 +6,16 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
-const deployment = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
+const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
+const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o";
 const apiVersion = "2024-10-01-preview";
 const credential = new DefaultAzureCredential();
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
+
+const deploymentMap = {
+  gpt5mini: deployment1,
+  gpt4o: deployment2,
+};
 
 const getAzureAdToken = async () => {
   const { token } = await credential.getToken(cognitiveServicesScope);
@@ -48,6 +54,8 @@ app.http("openai", {
       const requestMessage = body?.message ?? request.params?.message;
       const conversationPayload =
         body?.conversation ?? request.params?.conversation;
+      const requestedModel = body?.model || "gpt5mini";
+      const deployment = deploymentMap[requestedModel] || deployment1;
 
       if (!requestMessage) {
         return { status: 400, body: "Missing message payload" };

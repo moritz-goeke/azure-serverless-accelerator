@@ -59,6 +59,23 @@ param openAiModelVersion string = '2025-08-07'
 @maxValue(20)
 param openAiDeploymentCapacity int = 1
 
+@description('Name assigned to the second Azure OpenAI deployment.')
+param openAiDeploymentName2 string = 'gpt4o'
+
+@description('Model name configured in the second Azure OpenAI deployment.')
+param openAiModelName2 string = 'gpt-4o'
+
+@description('Model version configured in the second Azure OpenAI deployment.')
+param openAiModelVersion2 string = '2024-11-20'
+
+@description('Capacity allocated to the second Azure OpenAI deployment.')
+@minValue(1)
+@maxValue(20)
+param openAiDeploymentCapacity2 int = 1
+
+@description('Azure region for the Document Intelligence resource.')
+param docIntelligenceLocation string = 'westeurope'
+
 @description('Maximum number of Flex Consumption instances to allow for the Function App.')
 @minValue(40)
 @maxValue(1000)
@@ -92,6 +109,8 @@ var aiProjectName = toLower('proj-${namePrefix}-${uniqueSuffix}')
 var functionIdentityName = toLower('id-${namePrefix}-${uniqueSuffix}')
 var dataRoleDefinitionName = guid(cosmosAccountName, 'sql-data-role')
 var dataRoleAssignmentName = guid(functionAppName, cosmosContainerName, 'sql-data-assignment')
+var docIntelligenceAccountBase = toLower('${normalizedPrefix}${uniqueSuffix}di')
+var docIntelligenceAccountName = substring(docIntelligenceAccountBase, 0, min(length(docIntelligenceAccountBase), 44))
 var functionPackageContainerName = toLower('pkg-${namePrefix}-${uniqueSuffix}')
 var sanitizedNodeVersion = replace(nodeVersion, '~', '')
 var allTags = union(tags, {
@@ -154,6 +173,56 @@ resource aiModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@202
       version: openAiModelVersion
     }
     raiPolicyName: 'Microsoft.Default'
+  }
+}
+
+resource aiModelDeployment2 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  name: openAiDeploymentName2
+  parent: aiServicesAccount
+  sku: {
+    name: 'GlobalStandard'
+    capacity: openAiDeploymentCapacity2
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: openAiModelName2
+      version: openAiModelVersion2
+    }
+    raiPolicyName: 'Microsoft.Default'
+  }
+  dependsOn: [
+    aiModelDeployment
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Azure Document Intelligence
+// ---------------------------------------------------------------------------
+resource docIntelligence 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: docIntelligenceAccountName
+  location: docIntelligenceLocation
+  kind: 'FormRecognizer'
+  sku: {
+    name: 'S0'
+  }
+  tags: allTags
+  properties: {
+    customSubDomainName: docIntelligenceAccountName
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource docIntelligenceRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(docIntelligence.id, functionIdentity.id, 'cog-user')
+  scope: docIntelligence
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'a97b65f3-24c7-4388-baec-2e87135dc908'
+    )
+    principalId: functionIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -380,6 +449,18 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_OPENAI_MODEL'
           value: openAiModelName
         }
+        {
+          name: 'AZURE_OPENAI_DEPLOYMENT_2'
+          value: openAiDeploymentName2
+        }
+        {
+          name: 'AZURE_OPENAI_MODEL_2'
+          value: openAiModelName2
+        }
+        {
+          name: 'DOCUMENT_INTELLIGENCE_ENDPOINT'
+          value: 'https://${docIntelligence.name}.cognitiveservices.azure.com/'
+        }
       ]
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -571,5 +652,8 @@ output cosmosRoleDefinitionId string = cosmosSqlDataRole.id
 output aiServicesAccountName string = aiServicesAccount.name
 output aiServicesEndpoint string = 'https://${aiServicesAccount.name}.openai.azure.com/'
 output aiDeploymentName string = openAiDeploymentName
+output aiDeploymentName2 string = openAiDeploymentName2
+output docIntelligenceName string = docIntelligence.name
+output docIntelligenceEndpoint string = 'https://${docIntelligence.name}.cognitiveservices.azure.com/'
 output aiHubName string = aiHub.name
 output aiProjectName string = aiProject.name

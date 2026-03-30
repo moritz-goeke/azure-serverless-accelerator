@@ -1,8 +1,17 @@
-export const LIGHT_BLUE = "#00a2b8";
-export const ACCENT_BLUE = "#235864";
+export const PRIMARY_TEAL = "#0097a7";
+export const ACCENT_TEAL = "#00796b";
+export const LIGHT_BLUE = PRIMARY_TEAL;
+export const ACCENT_BLUE = ACCENT_TEAL;
 export const WHITE = "#ffffff";
+export const BG_DARK = "#0d1b2a";
+export const BG_CARD = "#132638";
+export const BG_SURFACE = "#1b2d3e";
+export const BORDER_COLOR = "#1e3a50";
+export const TEXT_MUTED = "#8eacbe";
+export const TEXT_PRIMARY = "#e0eaf0";
+export const HEADER_GRADIENT = "linear-gradient(90deg, #0d2137, #143048)";
 
-export function customScrollBar(color = LIGHT_BLUE) {
+export function customScrollBar(color = PRIMARY_TEAL) {
   return {
     "&::-webkit-scrollbar": {
       width: "0.4em",
@@ -23,9 +32,11 @@ export function customScrollBar(color = LIGHT_BLUE) {
 
 export const costInCentPerInputToken = {
   gpt5mini: 0.000022,
+  gpt4o: 0.00025,
 };
 
 export const costInCentPerOutputToken = {
   gpt5mini: 0.000172,
+  gpt4o: 0.001,
 };
 export const AZURE_FUNCTION_COST_CT_PER_GB_SECOND = 0.000023;
