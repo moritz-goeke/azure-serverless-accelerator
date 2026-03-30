@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3199436516359866825"
+      "templateHash": "6642865685891441168"
     }
   },
   "parameters": {
@@ -378,6 +378,19 @@
       ]
     },
     {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('log-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('allTags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
       "type": "Microsoft.Insights/components",
       "apiVersion": "2020-02-02",
       "name": "[format('ai-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix'))]",
@@ -388,9 +401,13 @@
         "Application_Type": "web",
         "Flow_Type": "Bluefield",
         "Request_Source": "AzureMonitor",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]",
         "publicNetworkAccessForIngestion": "Enabled",
         "publicNetworkAccessForQuery": "Enabled"
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('log-{0}-{1}', parameters('namePrefix'), variables('uniqueSuffix')))]"
+      ]
     },
     {
       "type": "Microsoft.Web/serverfarms",

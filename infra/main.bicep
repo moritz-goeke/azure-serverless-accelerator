@@ -270,6 +270,18 @@ resource functionStorageBlobRoleAssignment 'Microsoft.Authorization/roleAssignme
   }
 }
 
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'log-${namePrefix}-${uniqueSuffix}'
+  location: location
+  tags: allTags
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'ai-${namePrefix}-${uniqueSuffix}'
   location: location
@@ -279,6 +291,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     Flow_Type: 'Bluefield'
     Request_Source: 'AzureMonitor'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
     publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
   }
