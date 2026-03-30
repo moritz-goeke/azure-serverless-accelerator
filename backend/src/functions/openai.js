@@ -6,7 +6,11 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
-const deployment = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
+const deployments = {
+  [process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini"]: process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini",
+  [process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o"]: process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o",
+};
+const defaultDeployment = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
 const apiVersion = "2024-10-01-preview";
 const credential = new DefaultAzureCredential();
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
@@ -46,6 +50,7 @@ app.http("openai", {
 
       const body = await parseRequestBody(request, context);
       const requestMessage = body?.message ?? request.params?.message;
+      const requestModel = body?.model;
       const conversationPayload =
         body?.conversation ?? request.params?.conversation;
 
@@ -74,6 +79,8 @@ app.http("openai", {
           role: entry.from === "gpt" ? "assistant" : "user",
           content: entry.message,
         }));
+
+      const deployment = (requestModel && deployments[requestModel]) ? deployments[requestModel] : defaultDeployment;
 
       const completionObject = {
         messages: messageArray,

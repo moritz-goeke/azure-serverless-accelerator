@@ -31,6 +31,7 @@ import {
   ACCENT_BLUE,
   AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
   LIGHT_BLUE,
+  MODEL_OPTIONS,
   WHITE,
   costInCentPerInputToken,
   costInCentPerOutputToken,
@@ -43,7 +44,7 @@ import Typewriter from "../components/Typewriter";
 
 const CONVERSATION_CONTAINER = "Conversations";
 const DEFAULT_ASSISTANT_MESSAGE =
-  "Hello, I am the serverless agent. Ask me a question about serverless on Azure.";
+  "Hallo! Ich bin euer KI-Assistent für den Unterricht. Stellt mir eine Frage – ich helfe euch gerne beim Lernen!";
 
 const buildDefaultMessages = () => [
   {
@@ -94,7 +95,7 @@ const formatConversationTimestamp = (value) => {
 const buildDefaultTitle = () => formatConversationTimestamp(Date.now()) || "";
 
 function MainPage() {
-  const selectedModel = "gpt5mini";
+  const [selectedModel, setSelectedModel] = React.useState("gpt5mini");
   const [inputText, setInputText] = React.useState("");
   const [chatArray, setChatArray] = React.useState([]);
   const [typewriterIndex, setTypewriterIndex] = React.useState(null);
@@ -332,6 +333,7 @@ function MainPage() {
       const response = await axios.post("/api/openai", {
         message: trimmedText,
         conversation: JSON.stringify(conversation),
+        model: selectedModel,
       });
       let data = response.data;
       if (typeof data === "string") {
@@ -582,8 +584,31 @@ function MainPage() {
               lineHeight: 1,
             }}
           >
-            Serverless App | AI Chat
+            KI-Chatbot | Schule
           </Typography>
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 3 }}>
+          {MODEL_OPTIONS.map((m) => (
+            <Button
+              key={m.key}
+              size="small"
+              variant={selectedModel === m.key ? "contained" : "outlined"}
+              onClick={() => setSelectedModel(m.key)}
+              disabled={loadingAnswer}
+              sx={{
+                textTransform: "none",
+                fontFamily: "Lato",
+                fontSize: 12,
+                borderColor: LIGHT_BLUE,
+                color: selectedModel === m.key ? "#fff" : LIGHT_BLUE,
+                bgcolor: selectedModel === m.key ? ACCENT_BLUE : "transparent",
+                "&:hover": { bgcolor: selectedModel === m.key ? ACCENT_BLUE : "rgba(0,162,184,0.08)" },
+                minWidth: 100,
+              }}
+            >
+              {m.label}
+            </Button>
+          ))}
         </Box>
       </Box>
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
@@ -1000,7 +1025,7 @@ function MainPage() {
         }}
       >
         <FooterLine typographySx={{ fontSize: 11, color: "#66767e" }}>
-          Built on Azure • Serverless AI App
+          KI-Chatbot für Schüler*innen • Powered by Azure
         </FooterLine>
       </Box>
     </Box>

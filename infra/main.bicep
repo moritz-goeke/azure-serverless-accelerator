@@ -45,19 +45,33 @@ param openAiLocation string = 'swedencentral'
 @description('SKU used for the Azure OpenAI account.')
 param openAiSkuName string = 'S0'
 
-@description('Name assigned to the Azure OpenAI deployment.')
+@description('Name assigned to the primary Azure OpenAI deployment.')
 param openAiDeploymentName string = 'gpt5mini'
 
-@description('Model name configured in the Azure OpenAI deployment.')
+@description('Model name for the primary deployment.')
 param openAiModelName string = 'gpt-5-mini'
 
-@description('Model version configured in the Azure OpenAI deployment.')
+@description('Model version for the primary deployment.')
 param openAiModelVersion string = '2025-08-07'
 
-@description('Capacity allocated to the Azure OpenAI deployment.')
+@description('Capacity allocated to the primary deployment.')
 @minValue(1)
 @maxValue(20)
 param openAiDeploymentCapacity int = 1
+
+@description('Name assigned to the secondary Azure OpenAI deployment.')
+param openAiDeploymentName2 string = 'gpt4o'
+
+@description('Model name for the secondary deployment.')
+param openAiModelName2 string = 'gpt-4o'
+
+@description('Model version for the secondary deployment.')
+param openAiModelVersion2 string = '2024-11-20'
+
+@description('Capacity allocated to the secondary deployment.')
+@minValue(1)
+@maxValue(20)
+param openAiDeploymentCapacity2 int = 1
 
 @description('Maximum number of Flex Consumption instances to allow for the Function App.')
 @minValue(40)
@@ -152,6 +166,24 @@ resource aiModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@202
       format: 'OpenAI'
       name: openAiModelName
       version: openAiModelVersion
+    }
+    raiPolicyName: 'Microsoft.Default'
+  }
+}
+
+resource aiModelDeployment2 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  name: openAiDeploymentName2
+  parent: aiServicesAccount
+  dependsOn: [aiModelDeployment]
+  sku: {
+    name: 'GlobalStandard'
+    capacity: openAiDeploymentCapacity2
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: openAiModelName2
+      version: openAiModelVersion2
     }
     raiPolicyName: 'Microsoft.Default'
   }
@@ -380,6 +412,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AZURE_OPENAI_MODEL'
           value: openAiModelName
         }
+        {
+          name: 'AZURE_OPENAI_DEPLOYMENT_2'
+          value: openAiDeploymentName2
+        }
+        {
+          name: 'AZURE_OPENAI_MODEL_2'
+          value: openAiModelName2
+        }
       ]
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -571,5 +611,6 @@ output cosmosRoleDefinitionId string = cosmosSqlDataRole.id
 output aiServicesAccountName string = aiServicesAccount.name
 output aiServicesEndpoint string = 'https://${aiServicesAccount.name}.openai.azure.com/'
 output aiDeploymentName string = openAiDeploymentName
+output aiDeploymentName2 string = openAiDeploymentName2
 output aiHubName string = aiHub.name
 output aiProjectName string = aiProject.name

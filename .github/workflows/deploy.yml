@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/school-chatbot
   workflow_dispatch:
     inputs:
       namePrefix:
