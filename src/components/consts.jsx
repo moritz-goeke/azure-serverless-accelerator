@@ -25,18 +25,7 @@ export function customScrollBar(color = "#c7d2fe") {
   };
 }
 
-export const costInCentPerInputToken = {
-  gpt5mini: 0.000022,
-  gpt4o: 0.000180,
-};
-
-export const costInCentPerOutputToken = {
-  gpt5mini: 0.000172,
-  gpt4o: 0.000720,
-};
-
 export const MODEL_OPTIONS = [
   { key: "gpt5mini", label: "GPT-5 Mini", description: "Schnell & günstig", icon: "⚡" },
   { key: "gpt4o", label: "GPT-4o", description: "Leistungsstark", icon: "🧠" },
 ];
-export const AZURE_FUNCTION_COST_CT_PER_GB_SECOND = 0.000023;

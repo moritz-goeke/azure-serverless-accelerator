@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Collapse,
   IconButton,
   TextField,
   Typography,
@@ -16,7 +15,6 @@ import "katex/dist/katex.min.css";
 import * as React from "react";
 import AiMarkdown from "../components/AiMarkdown";
 import {
-  AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
   BORDER,
   MODEL_OPTIONS,
   PRIMARY,
@@ -24,11 +22,8 @@ import {
   TEXT_LIGHT,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
-  costInCentPerInputToken,
-  costInCentPerOutputToken,
   customScrollBar,
 } from "../components/consts";
-import { beautifyCostCentValue } from "../components/helpers";
 import NotificationSnackbar from "../components/NotificationSnackbar";
 import Typewriter from "../components/Typewriter";
 
@@ -89,13 +84,6 @@ function MainPage() {
   const [inputText, setInputText] = React.useState("");
   const [chatArray, setChatArray] = React.useState([]);
   const [typewriterIndex, setTypewriterIndex] = React.useState(null);
-  const [promptTokens, setPromptTokens] = React.useState(0);
-  const [completionTokens, setCompletionTokens] = React.useState(0);
-  const [sessionCostConsumption, setSessionCostConsumption] = React.useState(0);
-  const [functionExecutionTime, setFunctionExecutionTime] = React.useState(0);
-  const [functionComputeCost, setFunctionComputeCost] = React.useState(0);
-  const [totalOverallCost, setTotalOverallCost] = React.useState(0);
-  const [chartHistory, setChartHistory] = React.useState([]);
   const [loadingAnswer, setLoadingAnswer] = React.useState(false);
   const [skipAnimation, setSkipAnimation] = React.useState(false);
   const [writing, setWriting] = React.useState(false);
@@ -106,7 +94,6 @@ function MainPage() {
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState("");
-  const [showStats, setShowStats] = React.useState(false);
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
@@ -114,16 +101,6 @@ function MainPage() {
     if (!message) return;
     setSnackbarMessage(message);
     setSnackbarOpen(true);
-  }, []);
-
-  const resetSessionStats = React.useCallback(() => {
-    setPromptTokens(0);
-    setCompletionTokens(0);
-    setSessionCostConsumption(0);
-    setFunctionExecutionTime(0);
-    setFunctionComputeCost(0);
-    setTotalOverallCost(0);
-    setChartHistory([]);
   }, []);
 
   const loadConversation = React.useCallback(
@@ -140,9 +117,8 @@ function MainPage() {
       setSkipAnimation(false);
       const hasMessages = conversation?.messages?.length;
       setTypewriterIndex(hasMessages ? null : 0);
-      resetSessionStats();
     },
-    [resetSessionStats]
+    []
   );
 
   const upsertConversation = React.useCallback((item) => {
@@ -169,8 +145,7 @@ function MainPage() {
     setTitleDraft(buildDefaultTitle());
     setSkipAnimation(false);
     setTypewriterIndex(0);
-    resetSessionStats();
-  }, [resetSessionStats]);
+  }, []);
 
   const initializeConversations = React.useCallback(async () => {
     setSidebarLoading(true);
@@ -319,7 +294,6 @@ function MainPage() {
     setInputText("");
     setLoadingAnswer(true);
     setWriting(true);
-    const start = Date.now();
     try {
       const response = await axios.post("/api/openai", {
         message: trimmedText,
@@ -334,40 +308,8 @@ function MainPage() {
           console.warn("Failed to parse OpenAI response", parseError);
         }
       }
-      const end = Date.now();
-      const execMs = end - start;
-      const usage = data?.usage || {};
-      const pt = usage.prompt_tokens || 0;
-      const ct = usage.completion_tokens || 0;
-      const aiCostSingle =
-        pt * costInCentPerInputToken[selectedModel] +
-        ct * costInCentPerOutputToken[selectedModel];
-      const execSeconds = execMs / 1000;
-      const funcCostSingle =
-        execSeconds * 1 * AZURE_FUNCTION_COST_CT_PER_GB_SECOND;
-      const totalSingle = aiCostSingle + funcCostSingle;
-
-      setPromptTokens((p) => p + pt);
-      setCompletionTokens((p) => p + ct);
-      setSessionCostConsumption((c) => c + aiCostSingle);
-      setFunctionExecutionTime((t) => t + execMs);
-      setFunctionComputeCost((c) => c + funcCostSingle);
-      setTotalOverallCost((c) => c + totalSingle);
-      setChartHistory((h) => {
-        const next = [
-          ...h,
-          {
-            timestamp: new Date().toISOString(),
-            promptTokens: pt,
-            completionTokens: ct,
-            executionTime: execMs,
-            cost: totalSingle,
-          },
-        ];
-        return next.slice(-20);
-      });
       const gptContent =
-        data?.choices?.[0]?.message?.content || "(no response received)";
+        data?.choices?.[0]?.message?.content || "(Keine Antwort erhalten)";
       const updatedConversation = [
         ...conversation,
         { from: "gpt", message: gptContent },
@@ -379,20 +321,13 @@ function MainPage() {
       console.error("Failed to send message", error);
       setChatArray((arr) => [
         ...arr,
-        { from: "gpt", message: "Error fetching the response", error: true },
+        { from: "gpt", message: "Fehler beim Abrufen der Antwort.", error: true },
       ]);
     } finally {
       setLoadingAnswer(false);
       setWriting(false);
     }
   };
-
-  const statRow = (label, value) => (
-    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 0.4 }}>
-      <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>{label}</Typography>
-      <Typography sx={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY }}>{value}</Typography>
-    </Box>
-  );
 
   const activeModel = MODEL_OPTIONS.find((m) => m.key === selectedModel);
 
@@ -546,30 +481,6 @@ function MainPage() {
             )}
           </Box>
 
-          {/* Collapsible Stats */}
-          <Box sx={{ borderTop: "1px solid #f1f5f9" }}>
-            <Box
-              onClick={() => setShowStats(!showStats)}
-              sx={{ px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", "&:hover": { bgcolor: "#f8fafc" }, transition: "background 0.15s" }}
-            >
-              <Typography sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: TEXT_LIGHT }}>
-                📊 Statistiken
-              </Typography>
-              <Typography sx={{ fontSize: 16, color: TEXT_LIGHT, lineHeight: 1, transition: "transform 0.2s", transform: showStats ? "rotate(180deg)" : "rotate(0)" }}>
-                ▾
-              </Typography>
-            </Box>
-            <Collapse in={showStats}>
-              <Box sx={{ px: 2, pb: 2, display: "flex", flexDirection: "column", gap: 0.3 }}>
-                {statRow("Prompt Tokens", promptTokens)}
-                {statRow("Completion Tokens", completionTokens)}
-                {statRow("KI-Kosten", beautifyCostCentValue(sessionCostConsumption))}
-                {statRow("Ausführungszeit", `${functionExecutionTime}ms`)}
-                {statRow("Funktionskosten", beautifyCostCentValue(functionComputeCost))}
-                {statRow("Gesamt", beautifyCostCentValue(totalOverallCost))}
-              </Box>
-            </Collapse>
-          </Box>
         </Box>
         {/* CHAT AREA */}
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column", bgcolor: "#f8fafc", minWidth: 0 }}>
