@@ -19,19 +19,9 @@ import {
 import axios from "axios";
 import "katex/dist/katex.min.css";
 import * as React from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import AiMarkdown from "../components/AiMarkdown";
 import {
   ACCENT_WARM,
-  AZURE_FUNCTION_COST_CT_PER_GB_SECOND,
   BG_CARD,
   BG_WARM,
   BORDER_SOFT,
@@ -40,12 +30,9 @@ import {
   PRIMARY_LIGHT,
   TEXT_DARK,
   TEXT_MUTED,
-  costInCentPerInputToken,
-  costInCentPerOutputToken,
   customScrollBar,
 } from "../components/consts";
 import { FooterLine } from "../components/Footer";
-import { beautifyCostCentValue } from "../components/helpers";
 import NotificationSnackbar from "../components/NotificationSnackbar";
 import Typewriter from "../components/Typewriter";
 
@@ -113,13 +100,6 @@ function MainPage() {
   const [inputText, setInputText] = React.useState("");
   const [chatArray, setChatArray] = React.useState([]);
   const [typewriterIndex, setTypewriterIndex] = React.useState(null);
-  const [promptTokens, setPromptTokens] = React.useState(0);
-  const [completionTokens, setCompletionTokens] = React.useState(0);
-  const [sessionCostConsumption, setSessionCostConsumption] = React.useState(0);
-  const [functionExecutionTime, setFunctionExecutionTime] = React.useState(0);
-  const [functionComputeCost, setFunctionComputeCost] = React.useState(0);
-  const [totalOverallCost, setTotalOverallCost] = React.useState(0);
-  const [chartHistory, setChartHistory] = React.useState([]);
   const [loadingAnswer, setLoadingAnswer] = React.useState(false);
   const [skipAnimation, setSkipAnimation] = React.useState(false);
   const [writing, setWriting] = React.useState(false);
@@ -130,7 +110,6 @@ function MainPage() {
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState("");
-  const [showStats, setShowStats] = React.useState(false);
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
@@ -138,16 +117,6 @@ function MainPage() {
     if (!message) return;
     setSnackbarMessage(message);
     setSnackbarOpen(true);
-  }, []);
-
-  const resetSessionStats = React.useCallback(() => {
-    setPromptTokens(0);
-    setCompletionTokens(0);
-    setSessionCostConsumption(0);
-    setFunctionExecutionTime(0);
-    setFunctionComputeCost(0);
-    setTotalOverallCost(0);
-    setChartHistory([]);
   }, []);
 
   const loadConversation = React.useCallback(
@@ -164,9 +133,8 @@ function MainPage() {
       setSkipAnimation(false);
       const hasMessages = conversation?.messages?.length;
       setTypewriterIndex(hasMessages ? null : 0);
-      resetSessionStats();
     },
-    [resetSessionStats]
+    []
   );
 
   const upsertConversation = React.useCallback((item) => {
@@ -193,8 +161,7 @@ function MainPage() {
     setTitleDraft(buildDefaultTitle());
     setSkipAnimation(false);
     setTypewriterIndex(0);
-    resetSessionStats();
-  }, [resetSessionStats]);
+  }, []);
 
   const initializeConversations = React.useCallback(async () => {
     setSidebarLoading(true);
@@ -343,7 +310,6 @@ function MainPage() {
     setInputText("");
     setLoadingAnswer(true);
     setWriting(true);
-    const start = Date.now();
     try {
       const response = await axios.post("/api/openai", {
         message: trimmedText,
@@ -358,38 +324,6 @@ function MainPage() {
           console.warn("Failed to parse OpenAI response", parseError);
         }
       }
-      const end = Date.now();
-      const execMs = end - start;
-      const usage = data?.usage || {};
-      const pt = usage.prompt_tokens || 0;
-      const ct = usage.completion_tokens || 0;
-      const aiCostSingle =
-        pt * costInCentPerInputToken[selectedModel] +
-        ct * costInCentPerOutputToken[selectedModel];
-      const execSeconds = execMs / 1000;
-      const funcCostSingle =
-        execSeconds * 1 * AZURE_FUNCTION_COST_CT_PER_GB_SECOND;
-      const totalSingle = aiCostSingle + funcCostSingle;
-
-      setPromptTokens((p) => p + pt);
-      setCompletionTokens((p) => p + ct);
-      setSessionCostConsumption((c) => c + aiCostSingle);
-      setFunctionExecutionTime((t) => t + execMs);
-      setFunctionComputeCost((c) => c + funcCostSingle);
-      setTotalOverallCost((c) => c + totalSingle);
-      setChartHistory((h) => {
-        const next = [
-          ...h,
-          {
-            timestamp: new Date().toISOString(),
-            promptTokens: pt,
-            completionTokens: ct,
-            executionTime: execMs,
-            cost: totalSingle,
-          },
-        ];
-        return next.slice(-20);
-      });
       const gptContent =
         data?.choices?.[0]?.message?.content || "(Keine Antwort erhalten)";
       const updatedConversation = [
@@ -410,139 +344,6 @@ function MainPage() {
       setWriting(false);
     }
   };
-
-  const fontMono = { ...fontMain, fontSize: 12, letterSpacing: 0.3 };
-  const metricRow = (label, value) => (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <Typography sx={{ ...fontMono, color: TEXT_MUTED }}>{label}</Typography>
-      <Typography sx={{ ...fontMono, fontWeight: 700, color: TEXT_DARK }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-
-  const cumulative = React.useMemo(() => {
-    const base = { tokensPrompt: [], tokensCompletion: [], exec: [], cost: [] };
-    chartHistory.reduce((acc, entry, idx) => {
-      const nextIndex = idx + 1;
-      const lastPT = acc.tokensPrompt[acc.tokensPrompt.length - 1]?.value || 0;
-      const lastCT =
-        acc.tokensCompletion[acc.tokensCompletion.length - 1]?.value || 0;
-      const lastExec = acc.exec[acc.exec.length - 1]?.value || 0;
-      const lastCost = acc.cost[acc.cost.length - 1]?.value || 0;
-      acc.tokensPrompt.push({
-        index: nextIndex,
-        value: lastPT + entry.promptTokens,
-      });
-      acc.tokensCompletion.push({
-        index: nextIndex,
-        value: lastCT + entry.completionTokens,
-      });
-      acc.exec.push({
-        index: nextIndex,
-        value: lastExec + entry.executionTime,
-      });
-      acc.cost.push({ index: nextIndex, value: lastCost + entry.cost });
-      return acc;
-    }, base);
-    return base;
-  }, [chartHistory]);
-
-  const chartCard = (title, lines) => (
-    <Box
-      sx={{
-        p: 1.5,
-        background: BG_CARD,
-        borderRadius: 3,
-        border: `1px solid ${BORDER_SOFT}`,
-        display: "flex",
-        flexDirection: "column",
-        gap: 0.5,
-        height: 160,
-      }}
-    >
-      <Typography
-        sx={{
-          ...fontMain,
-          fontSize: 11,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: 0.8,
-          color: PRIMARY,
-        }}
-      >
-        {title}
-      </Typography>
-      <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 0.5 }}>
-        {lines.map((l, i) => (
-          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 8,
-                background: l.color,
-                borderRadius: 1,
-              }}
-            />
-            <Typography sx={{ ...fontMono, color: TEXT_MUTED, fontSize: 10 }}>
-              {l.label || l.name || ""}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={(() => {
-            const maxLen = Math.max(...lines.map((l) => l.data?.length || 0));
-            const merged = [];
-            for (let i = 0; i < maxLen; i++) {
-              const point = { index: i + 1 };
-              for (let j = 0; j < lines.length; j++) {
-                point[`v${j}`] = lines[j].data?.[i]?.value ?? null;
-              }
-              merged.push(point);
-            }
-            return merged;
-          })()}
-          margin={{ top: 5, right: 8, left: -10, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="2 4" stroke={BORDER_SOFT} />
-          <XAxis
-            dataKey="index"
-            stroke={TEXT_MUTED}
-            tick={{ fontSize: 10 }}
-            type="number"
-            domain={["dataMin", "dataMax"]}
-          />
-          <YAxis stroke={TEXT_MUTED} tick={{ fontSize: 10 }} />
-          <Tooltip
-            contentStyle={{
-              background: BG_CARD,
-              border: `1px solid ${BORDER_SOFT}`,
-              borderRadius: 8,
-            }}
-          />
-          {lines.map((l, i) => (
-            <Line
-              key={i}
-              type="monotone"
-              dataKey={`v${i}`}
-              stroke={l.color}
-              dot={false}
-              strokeWidth={2}
-              name={l.label || l.name}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </Box>
-  );
 
   return (
     <Box
@@ -639,20 +440,6 @@ function MainPage() {
               </MenuItem>
             ))}
           </Select>
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => setShowStats((s) => !s)}
-            sx={{
-              ...fontMain,
-              textTransform: "none",
-              color: "rgba(255,255,255,0.8)",
-              fontSize: 12,
-              "&:hover": { color: "#fff", bgcolor: "rgba(255,255,255,0.1)" },
-            }}
-          >
-            {showStats ? "Statistiken ausblenden" : "Statistiken"}
-          </Button>
         </Box>
       </Box>
 
@@ -1042,79 +829,6 @@ function MainPage() {
             onChange={(e) => setInputText(e.target.value)}
           />
         </Box>
-
-        {/* ─── Stats panel (toggleable) ─── */}
-        {showStats && (
-          <Box
-            sx={{
-              width: 320,
-              flexShrink: 0,
-              borderLeft: `1px solid ${BORDER_SOFT}`,
-              bgcolor: BG_CARD,
-              display: "flex",
-              flexDirection: "column",
-              gap: 1.5,
-              p: 2,
-              overflowY: "auto",
-              ...customScrollBar(PRIMARY_LIGHT),
-            }}
-          >
-            <Typography
-              sx={{
-                ...fontMain,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 1,
-                textTransform: "uppercase",
-                color: TEXT_MUTED,
-              }}
-            >
-              Sitzungsstatistiken
-            </Typography>
-            <Box
-              sx={{
-                p: 1.5,
-                border: `1px solid ${BORDER_SOFT}`,
-                borderRadius: 3,
-                background: BG_WARM,
-                display: "flex",
-                flexDirection: "column",
-                gap: 0.6,
-              }}
-            >
-              {metricRow("Prompt Tokens", promptTokens)}
-              {metricRow("Completion Tokens", completionTokens)}
-              {metricRow(
-                "KI-Kosten (ct)",
-                beautifyCostCentValue(sessionCostConsumption)
-              )}
-              {metricRow("Ausführungszeit (ms)", functionExecutionTime)}
-              {metricRow(
-                "Funktionskosten (ct)",
-                beautifyCostCentValue(functionComputeCost)
-              )}
-              {metricRow("Gesamt (ct)", beautifyCostCentValue(totalOverallCost))}
-            </Box>
-            {chartCard("Tokens", [
-              {
-                data: cumulative.tokensPrompt,
-                color: PRIMARY,
-                label: "Prompt",
-              },
-              {
-                data: cumulative.tokensCompletion,
-                color: ACCENT_WARM,
-                label: "Completion",
-              },
-            ])}
-            {chartCard("Ausführungszeit (ms)", [
-              { data: cumulative.exec, color: "#E8A87C", label: "Zeit (ms)" },
-            ])}
-            {chartCard("Gesamtkosten (ct)", [
-              { data: cumulative.cost, color: "#C26B5B", label: "Kosten (ct)" },
-            ])}
-          </Box>
-        )}
       </Box>
 
       {/* ─── Footer ─── */}

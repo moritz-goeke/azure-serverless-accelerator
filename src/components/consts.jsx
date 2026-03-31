@@ -33,13 +33,3 @@ export function customScrollBar(color = PRIMARY) {
   };
 }
 
-export const costInCentPerInputToken = {
-  gpt5mini: 0.000022,
-  gpt4o: 0.000250,
-};
-
-export const costInCentPerOutputToken = {
-  gpt5mini: 0.000172,
-  gpt4o: 0.001000,
-};
-export const AZURE_FUNCTION_COST_CT_PER_GB_SECOND = 0.000023;
