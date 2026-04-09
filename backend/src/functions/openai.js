@@ -1,11 +1,15 @@
 const { app } = require("@azure/functions");
 const { AzureOpenAI } = require("openai");
 const { DefaultAzureCredential } = require("@azure/identity");
+const { CosmosClient } = require("@azure/cosmos");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
 const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+const cosmosEndpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
+const cosmosDatabaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
+const cosmosContainerName = process.env.COSMOS_CONTAINER_NAME || "items";
 const deployments = {
   [process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini"]: process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini",
   [process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o"]: process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o",
@@ -51,11 +55,31 @@ app.http("openai", {
       const body = await parseRequestBody(request, context);
       const requestMessage = body?.message ?? request.params?.message;
       const requestModel = body?.model;
+      const subjectId = body?.subjectId;
       const conversationPayload =
         body?.conversation ?? request.params?.conversation;
 
       if (!requestMessage) {
         return { status: 400, body: "Missing message payload" };
+      }
+
+      // Fetch subject context if a subjectId is provided
+      let subjectContext = "";
+      if (subjectId && cosmosEndpoint) {
+        try {
+          const cosmosClient = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
+          const container = cosmosClient.database(cosmosDatabaseName).container(cosmosContainerName);
+          const { resource: subject } = await container.item(subjectId, subjectId).read();
+          if (subject && subject.type === "subject" && Array.isArray(subject.documents) && subject.documents.length > 0) {
+            const docTexts = subject.documents.map((doc) => {
+              return `--- Dokument: ${doc.filename} ---\n${doc.extractedText}`;
+            });
+            subjectContext = docTexts.join("\n\n");
+            context.log(`Loaded ${subject.documents.length} document(s) for subject "${subject.name}" (${subjectContext.length} chars)`);
+          }
+        } catch (subjectError) {
+          context.log("Failed to load subject context, continuing without it", subjectError);
+        }
       }
 
       let requestConversation = [];
@@ -80,10 +104,24 @@ app.http("openai", {
           content: entry.message,
         }));
 
+      // Prepend system message with subject context if available
+      const systemMessages = [];
+      if (subjectContext) {
+        systemMessages.push({
+          role: "system",
+          content: `Du bist ein hilfreicher KI-Assistent für den Unterricht. Dir stehen folgende Unterrichtsmaterialien als Kontext zur Verfügung. Nutze diese Materialien, um die Fragen der Schüler*innen zu beantworten. Beziehe dich auf die Materialien, wenn sie relevant sind.\n\n${subjectContext}`,
+        });
+      } else {
+        systemMessages.push({
+          role: "system",
+          content: "Du bist ein hilfreicher KI-Assistent für den Unterricht. Beantworte Fragen klar, verständlich und altersgerecht.",
+        });
+      }
+
       const deployment = (requestModel && deployments[requestModel]) ? deployments[requestModel] : defaultDeployment;
 
       const completionObject = {
-        messages: messageArray,
+        messages: [...systemMessages, ...messageArray],
         model: deployment,
         max_completion_tokens: 16384,
       };

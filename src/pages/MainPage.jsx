@@ -25,6 +25,7 @@ import {
   customScrollBar,
 } from "../components/consts";
 import NotificationSnackbar from "../components/NotificationSnackbar";
+import SubjectPanel from "../components/SubjectPanel";
 import Typewriter from "../components/Typewriter";
 
 const CONVERSATION_CONTAINER = "Conversations";
@@ -94,6 +95,7 @@ function MainPage() {
   const [sidebarBusy, setSidebarBusy] = React.useState(false);
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState("");
+  const [activeSubjectId, setActiveSubjectId] = React.useState(null);
   const messagesRef = React.useRef(null);
   const inputRef = React.useRef(null);
 
@@ -295,11 +297,15 @@ function MainPage() {
     setLoadingAnswer(true);
     setWriting(true);
     try {
-      const response = await axios.post("/api/openai", {
+      const openaiPayload = {
         message: trimmedText,
         conversation: JSON.stringify(conversation),
         model: selectedModel,
-      });
+      };
+      if (activeSubjectId) {
+        openaiPayload.subjectId = activeSubjectId;
+      }
+      const response = await axios.post("/api/openai", openaiPayload);
       let data = response.data;
       if (typeof data === "string") {
         try {
@@ -427,6 +433,16 @@ function MainPage() {
             />
           </Box>
 
+          {/* Subject Panel */}
+          <Box sx={{ px: 1.5, py: 1.5, borderBottom: "1px solid #f1f5f9" }}>
+            <SubjectPanel
+              activeSubjectId={activeSubjectId}
+              onSubjectChange={setActiveSubjectId}
+              disabled={sidebarBusy || sidebarLoading || writing}
+              showSnackbar={showSnackbar}
+            />
+          </Box>
+
           {/* Conversation list */}
           <Box sx={{ flex: 1, overflowY: "auto", p: 1.5, display: "flex", flexDirection: "column", gap: 0.5, ...customScrollBar() }}>
             <Typography sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: TEXT_LIGHT, px: 1, mb: 0.5 }}>
@@ -485,11 +501,20 @@ function MainPage() {
         {/* CHAT AREA */}
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column", bgcolor: "#f8fafc", minWidth: 0 }}>
           {/* Active model indicator */}
-          <Box sx={{ px: 3, py: 1, borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 1 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#10b981" }} />
-            <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>
-              Aktives Modell: <strong>{activeModel?.label}</strong> — {activeModel?.description}
-            </Typography>
+          <Box sx={{ px: 3, py: 1, borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#10b981" }} />
+              <Typography sx={{ fontSize: 12, color: TEXT_SECONDARY }}>
+                Aktives Modell: <strong>{activeModel?.label}</strong> — {activeModel?.description}
+              </Typography>
+            </Box>
+            {activeSubjectId && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#ede9fe", borderRadius: "6px", px: 1, py: 0.25 }}>
+                <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 600 }}>
+                  📚 Fach-Kontext aktiv
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           {/* Messages */}
