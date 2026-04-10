@@ -8,6 +8,7 @@ A starter that combines a Vite/React front end, an Azure Functions (Flex Consump
 - [Architecture at a Glance](#architecture-at-a-glance)
 - [AI & Conversation Flow](#ai--conversation-flow)
 - [Repository Structure](#repository-structure)
+- [Getting Started – Tooling & Clone](#getting-started--tooling--clone)
 - [Prerequisites](#prerequisites)
 - [Setup Guide](#setup-guide)
 - [Local Development](#local-development)
@@ -88,6 +89,52 @@ GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web
 └── .github/workflows/
     └── deploy.yml           # IaC + app deployment pipeline
 ```
+
+## Getting Started – Tooling & Clone
+
+Before you begin, make sure **Visual Studio Code** and **Node.js** are installed on your machine and then clone this repository.
+
+### 1. Install Visual Studio Code
+
+1. Go to <https://code.visualstudio.com/>.
+2. Download the installer for your operating system (Windows / macOS / Linux).
+3. Run the installer – the default settings are fine.
+4. *(Optional)* Install helpful extensions from the VS Code marketplace:
+   - **Azure Functions** – local debugging of the backend.
+   - **Bicep** – syntax highlighting for the infrastructure templates.
+   - **ESLint** – inline lint feedback.
+
+### 2. Install Node.js (v22+)
+
+1. Go to <https://nodejs.org/> and download the **LTS** version (22.x or newer).
+2. Run the installer and follow the prompts (defaults are fine; on Windows, make sure *Add to PATH* is checked).
+3. Verify the installation:
+
+```powershell
+node --version   # should print v22.x.x or higher
+npm --version    # should print 10.x or higher
+```
+
+### 3. Clone the Repository
+
+```powershell
+# HTTPS
+git clone https://github.com/<owner>/azure-serverless-accelerator.git
+
+# – or SSH –
+git clone git@github.com:<owner>/azure-serverless-accelerator.git
+```
+
+Then open the project in VS Code:
+
+```powershell
+cd azure-serverless-accelerator
+code .
+```
+
+> **Tip:** If the `code` command is not found, open VS Code manually, press **Ctrl+Shift+P**, type *Shell Command: Install 'code' command in PATH* and run it.
+
+---
 
 ## Prerequisites
 
@@ -227,7 +274,8 @@ az deployment group create `
 
 The outputs include the Function App and Static Web App names, Cosmos endpoint, Azure OpenAI endpoint, deployment name, and the managed identity IDs (resource + client ID) for easy RBAC audits.
 
-## GitHub Actions Deployment
+<details>
+<summary><h2 style="display:inline">GitHub Actions Deployment</h2> <em>(click to expand)</em></summary>
 
 Workflow: `.github/workflows/deploy.yml`
 
@@ -306,6 +354,8 @@ The workflow rebuilds both projects with Node 22, logs into Azure via OIDC using
 3. Fill in the required inputs (resource group, function app, static web app, Azure IDs). You can copy the names from the IaC workflow outputs or `az deployment group show`.
 4. (Optional) Set the `slot` input if you want to deploy to a staging environment.
 5. Start the workflow and monitor its logs. The summary will confirm the target Function/Static Web App.
+
+</details>
 
 ## Node.js Tooling Alignment
 
