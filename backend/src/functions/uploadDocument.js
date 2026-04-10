@@ -2,8 +2,39 @@ const { app } = require("@azure/functions");
 const { v4: uuidv4 } = require("uuid");
 const { CosmosClient } = require("@azure/cosmos");
 const { DefaultAzureCredential } = require("@azure/identity");
-const pdfParse = require("pdf-parse");
+const path = require("path");
 const { getUserFromRequest } = require("../utils/auth");
+
+// pdfjs-dist (modern version) for reliable PDF text extraction
+const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.mjs");
+const standardFontDataUrl = path.join(
+  path.dirname(require.resolve("pdfjs-dist/package.json")),
+  "standard_fonts"
+) + "/";
+
+const endpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
+const databaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
+const containerName = process.env.COSMOS_CONTAINER_NAME || "items";
+const credential = new DefaultAzureCredential();
+
+const MAX_TEXT_LENGTH = 500_000; // ~500KB text per document to stay within Cosmos limits
+
+/** Extract text from all pages of a PDF buffer using pdfjs-dist */
+const extractTextFromPdf = async (pdfBuffer) => {
+  const data = new Uint8Array(pdfBuffer);
+  const doc = await pdfjsLib.getDocument({ data, standardFontDataUrl, useSystemFonts: true }).promise;
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    try {
+      const page = await doc.getPage(i);
+      const tc = await page.getTextContent();
+      pages.push(tc.items.map((it) => it.str).join(" "));
+    } catch {
+      pages.push("");
+    }
+  }
+  return pages.join("\n");
+};
 
 const endpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
 const databaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
@@ -50,8 +81,7 @@ app.http("uploadDocument", {
       const pdfBuffer = Buffer.from(fileBase64, "base64");
       let extractedText = "";
       try {
-        const parsed = await pdfParse(pdfBuffer);
-        extractedText = parsed.text || "";
+        extractedText = await extractTextFromPdf(pdfBuffer);
         if (extractedText.length > MAX_TEXT_LENGTH) {
           extractedText = extractedText.substring(0, MAX_TEXT_LENGTH);
           context.log(`Text truncated to ${MAX_TEXT_LENGTH} chars for ${filename}`);
