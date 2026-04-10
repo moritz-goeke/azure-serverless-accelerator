@@ -37,14 +37,20 @@ const getCosmosContainer = () => {
     return client.database(cosmosDbName).container(cosmosContainerName);
 };
 
+const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
+const apiVersion = "2024-10-01-preview";
+
+const getAzureAdToken = async () => {
+    const { token } = await credential.getToken(cognitiveServicesScope);
+    return token;
+};
+
 const summarizeWithLLM = async (text, deploymentName) => {
     const client = new AzureOpenAI({
         endpoint: openAiEndpoint,
-        azureADTokenProvider: async () => {
-            const token = await credential.getToken("https://cognitiveservices.azure.com/.default");
-            return token.token;
-        },
-        apiVersion: "2024-10-21",
+        apiVersion,
+        deployment: deploymentName,
+        azureADTokenProvider: getAzureAdToken,
     });
 
     // Truncate to avoid exceeding context window
