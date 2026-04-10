@@ -2,7 +2,7 @@ const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
-const pdfParse = require("pdf-parse/lib/pdf-parse");
+const pdfParse = require("pdf-parse");
 const dotenv = require("dotenv");
 
 dotenv.config();
