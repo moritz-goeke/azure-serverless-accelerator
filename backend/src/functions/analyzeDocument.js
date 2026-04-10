@@ -45,19 +45,28 @@ const getAzureAdToken = async () => {
     return token;
 };
 
-const summarizeWithLLM = async (text, deploymentName) => {
+const LLM_TIMEOUT_MS = 120_000; // 2 minute timeout for the entire LLM call
+
+const summarizeWithLLM = async (text, deploymentName, context) => {
+    const t0 = Date.now();
+    context.log(`[LLM] Creating AzureOpenAI client (endpoint=${openAiEndpoint}, deployment=${deploymentName})`);
+
     const client = new AzureOpenAI({
         endpoint: openAiEndpoint,
         apiVersion,
         deployment: deploymentName,
         azureADTokenProvider: getAzureAdToken,
+        timeout: LLM_TIMEOUT_MS,
     });
+    context.log(`[LLM] Client created in ${Date.now() - t0}ms`);
 
     // Truncate to avoid exceeding context window
     const truncatedText = text.length > MAX_LLM_INPUT_CHARS
         ? text.substring(0, MAX_LLM_INPUT_CHARS) + `\n\n[… Text gekürzt, ${text.length - MAX_LLM_INPUT_CHARS} Zeichen ausgelassen]`
         : text;
+    context.log(`[LLM] Input text: ${truncatedText.length} chars, sending to model...`);
 
+    const t1 = Date.now();
     const response = await client.chat.completions.create({
         model: deploymentName,
         messages: [
@@ -82,6 +91,7 @@ Antworte auf Deutsch. Sei präzise und sachlich. Verwende medizinische Fachbegri
         max_completion_tokens: 10000,
         temperature: 0.3,
     });
+    context.log(`[LLM] Response received in ${Date.now() - t1}ms (total ${Date.now() - t0}ms), usage: ${JSON.stringify(response.usage)}`);
 
     return response.choices[0]?.message?.content || "Zusammenfassung konnte nicht erstellt werden.";
 };
@@ -99,7 +109,8 @@ app.http("analyzeDocument", {
     methods: ["POST"],
     authLevel: "anonymous",
     handler: async (request, context) => {
-        context.log("analyzeDocument invoked");
+        const reqStart = Date.now();
+        context.log("analyzeDocument invoked at " + new Date().toISOString());
         try {
             const contentType = request.headers.get("content-type") || "";
             let body;
@@ -138,20 +149,21 @@ app.http("analyzeDocument", {
                 return { status: 400, body: JSON.stringify({ error: "Kein Text im PDF gefunden. Das Dokument ist möglicherweise bildbasiert (gescannt)." }) };
             }
 
-            context.log(`Extracted ${extractedText.length} chars from PDF`);
+            context.log(`[TIMING] PDF extracted (${extractedText.length} chars) in ${Date.now() - reqStart}ms`);
 
             // Determine deployment for selected model
             const selectedModel = model || "gpt5mini";
             const deployment = deploymentMap[selectedModel] || deployment1;
+            context.log(`[TIMING] Model=${selectedModel}, Deployment=${deployment}, Endpoint=${openAiEndpoint}`);
 
             // Run LLM summarization directly in the POST handler
             let summary = null;
             let jobStatus = "completed";
             let jobError = null;
             try {
-                context.log(`Starting LLM summarization with deployment: ${deployment}`);
-                summary = await summarizeWithLLM(extractedText, deployment);
-                context.log(`LLM summarization completed (${summary.length} chars)`);
+                context.log(`[TIMING] Starting LLM call at +${Date.now() - reqStart}ms`);
+                summary = await summarizeWithLLM(extractedText, deployment, context);
+                context.log(`[TIMING] LLM done at +${Date.now() - reqStart}ms (${summary.length} chars)`);
             } catch (llmErr) {
                 context.log.error("LLM summarization failed:", llmErr);
                 // Fallback: return extracted text without summary
@@ -174,8 +186,10 @@ app.http("analyzeDocument", {
                 error: jobError,
             };
 
+            context.log(`[TIMING] Storing to Cosmos at +${Date.now() - reqStart}ms`);
             const container = getCosmosContainer();
             await container.items.create(jobRecord);
+            context.log(`[TIMING] Cosmos write done at +${Date.now() - reqStart}ms, returning response`);
 
             return {
                 headers: { "Content-Type": "application/json" },
