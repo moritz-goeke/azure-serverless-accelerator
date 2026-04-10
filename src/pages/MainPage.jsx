@@ -402,14 +402,12 @@ function MainPage() {
           sx={{
             flex: 1,
             minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
             overflowY: "auto",
             p: { xs: 2, md: 4 },
-            gap: 3,
             ...customScrollBar("#b0bec5"),
           }}
         >
+         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Upload */}
           <Box
             onDrop={handleDrop}
@@ -419,7 +417,7 @@ function MainPage() {
             sx={{
               border: `2px dashed ${dragOver ? PRIMARY_TEAL : "#c8d3de"}`,
               borderRadius: 4,
-              p: { xs: 4, md: 6 },
+              p: { xs: 2, md: 3 },
               textAlign: "center",
               cursor: "pointer",
               bgcolor: dragOver ? "rgba(0,151,167,0.06)" : WHITE,
@@ -562,6 +560,7 @@ function MainPage() {
               </Typography>
             </Box>
           </Box>
+         </Box>
         </Box>
 
         {/* ═══ Right: Chat + Conversations ═══ */}
