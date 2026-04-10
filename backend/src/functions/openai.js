@@ -6,15 +6,23 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? <<<
+// 1. Neue Env-Variable anlegen (z.B. AZURE_OPENAI_DEPLOYMENT_3)
+//    → in Bicep (infra/main.bicep) und in den App-Settings ergänzen.
+// 2. Hier einlesen und unten in deploymentMap eintragen.
+// =====================================================================
 const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
 const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o";
 const apiVersion = "2024-10-01-preview";
 const credential = new DefaultAzureCredential();
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
 
+// >>> NEUES MODELL HINZUFÜGEN? Key muss zum "value" im Frontend (MODELS-Array) passen. <<<
 const deploymentMap = {
   gpt5mini: deployment1,
   gpt4o: deployment2,
+  // neuesModell: deployment3,
 };
 
 const getAzureAdToken = async () => {

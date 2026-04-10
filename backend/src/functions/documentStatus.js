@@ -11,6 +11,12 @@ const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
 const cosmosContainerName = process.env["COSMOS_CONTAINER_NAME"] || "items";
 const openAiEndpoint = process.env["AZURE_OPENAI_ENDPOINT"];
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? <<<
+// 1. Neue Env-Variable anlegen (z.B. AZURE_OPENAI_DEPLOYMENT_3)
+//    → in Bicep (infra/main.bicep) und in den App-Settings ergänzen.
+// 2. Hier einlesen und unten in deploymentMap eintragen.
+// =====================================================================
 const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"];
 const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"];
 const credential = new DefaultAzureCredential();
@@ -18,9 +24,11 @@ const credential = new DefaultAzureCredential();
 const JOBS_CONTAINER = "DocumentJobs";
 const MAX_LLM_INPUT_CHARS = 30_000; // truncate extracted text sent to LLM to fit context window
 
+// >>> NEUES MODELL HINZUFÜGEN? Key muss zum "value" im Frontend (MODELS-Array) passen. <<<
 const deploymentMap = {
     gpt5mini: deployment1,
     gpt4o: deployment2,
+    // neuesModell: deployment3,
 };
 
 const getCosmosContainer = () => {

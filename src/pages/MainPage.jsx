@@ -52,9 +52,15 @@ const CONVERSATION_CONTAINER = "Conversations";
 const DEFAULT_ASSISTANT_MESSAGE =
   "Guten Tag! Ich bin Ihr medizinischer Dokumentationsassistent. Sie können mir Fragen zu Krankenakten, Diagnosen oder medizinischer Dokumentation stellen.";
 
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? Hier einen neuen Eintrag ergänzen. <<<
+// Der "value" muss mit dem Key in der deploymentMap im Backend
+// (openai.js + documentStatus.js) übereinstimmen.
+// =====================================================================
 const MODELS = [
   { value: "gpt5mini", label: "GPT-5 Mini – schnell" },
   { value: "gpt4o", label: "GPT-4o – präzise" },
+  // { value: "neuesModell", label: "Neues Modell – Beschreibung" },
 ];
 
 const POLL_INTERVAL_MS = 5000;
