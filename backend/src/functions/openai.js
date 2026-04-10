@@ -10,9 +10,18 @@ const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
 const cosmosEndpoint = process.env.COSMOS_ENDPOINT || process.env.COSMOS_DB_ENDPOINT;
 const cosmosDatabaseName = process.env.COSMOS_DATABASE_NAME || "appdb";
 const cosmosContainerName = process.env.COSMOS_CONTAINER_NAME || "items";
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? <<<
+// 1. Neue Env-Variable anlegen (z.B. AZURE_OPENAI_DEPLOYMENT_3)
+//    → in Bicep (infra/main.bicep) und in den App-Settings ergänzen.
+// 2. Hier einen neuen Eintrag in "deployments" hinzufügen.
+// 3. Im Frontend: MODEL_OPTIONS in src/components/consts.jsx erweitern
+//    (key muss zum Key hier passen).
+// =====================================================================
 const deployments = {
   [process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini"]: process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini",
   [process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o"]: process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o",
+  // [process.env["AZURE_OPENAI_DEPLOYMENT_3"] || "neuesModell"]: process.env["AZURE_OPENAI_DEPLOYMENT_3"] || "neuesModell",
 };
 const defaultDeployment = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
 const apiVersion = "2024-10-01-preview";

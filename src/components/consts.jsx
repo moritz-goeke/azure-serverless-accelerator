@@ -25,7 +25,13 @@ export function customScrollBar(color = "#c7d2fe") {
   };
 }
 
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? Hier einen neuen Eintrag ergänzen. <<<
+// Der "key" muss mit dem Key in der deployments-Map im Backend
+// (openai.js) übereinstimmen.
+// =====================================================================
 export const MODEL_OPTIONS = [
   { key: "gpt5mini", label: "GPT-5 Mini", description: "Schnell & günstig", icon: "⚡" },
   { key: "gpt4o", label: "GPT-4o", description: "Leistungsstark", icon: "🧠" },
+  // { key: "neuesModell", label: "Neues Modell", description: "Beschreibung", icon: "🚀" },
 ];
