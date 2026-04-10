@@ -401,6 +401,7 @@ function MainPage() {
         <Box
           sx={{
             flex: 1,
+            minHeight: 0,
             display: "flex",
             flexDirection: "column",
             overflowY: "auto",
@@ -522,7 +523,7 @@ function MainPage() {
                 sx={{
                   px: 3,
                   py: 2.5,
-                  maxHeight: "55vh",
+                  maxHeight: "40vh",
                   overflowY: "auto",
                   ...customScrollBar("#b0bec5"),
                   color: "#1a2b3c",
