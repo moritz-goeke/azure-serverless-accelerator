@@ -391,7 +391,7 @@ function MainPage() {
               ref={fileInputRef}
               type="file"
               hidden
-              accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp"
+              accept=".pdf"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ""; }}
             />
             <CloudUploadIcon sx={{ fontSize: 52, color: PRIMARY_TEAL, mb: 1.5 }} />
@@ -399,7 +399,7 @@ function MainPage() {
               Krankenakte hochladen
             </Typography>
             <Typography sx={{ fontSize: 13, color: "#7a8da0" }}>
-              PDF, PNG, JPG oder TIFF – per Drag & Drop oder Klick (max. 10 MB)
+              PDF-Datei per Drag & Drop oder Klick hochladen (max. 10 MB)
             </Typography>
           </Box>
 
