@@ -2,10 +2,17 @@ const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
-const pdfParse = require("pdf-parse");
+const path = require("path");
 const dotenv = require("dotenv");
 
 dotenv.config();
+
+// pdfjs-dist (modern version) for reliable PDF text extraction
+const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.mjs");
+const standardFontDataUrl = path.join(
+    path.dirname(require.resolve("pdfjs-dist/package.json")),
+    "standard_fonts"
+) + "/";
 
 const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
@@ -18,6 +25,24 @@ const MAX_TEXT_LENGTH = 500_000; // max chars to store per document
 const getCosmosContainer = () => {
     const client = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
     return client.database(cosmosDbName).container(cosmosContainerName);
+};
+
+/** Extract text from all pages of a PDF buffer using pdfjs-dist */
+const extractTextFromPdf = async (pdfBuffer) => {
+    const data = new Uint8Array(pdfBuffer);
+    const doc = await pdfjsLib.getDocument({ data, standardFontDataUrl, useSystemFonts: true }).promise;
+    const pages = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+        try {
+            const page = await doc.getPage(i);
+            const tc = await page.getTextContent();
+            pages.push(tc.items.map((it) => it.str).join(" "));
+        } catch {
+            // skip unreadable pages
+            pages.push("");
+        }
+    }
+    return pages.join("\n");
 };
 
 app.http("analyzeDocument", {
@@ -49,8 +74,7 @@ app.http("analyzeDocument", {
 
             let extractedText = "";
             try {
-                const parsed = await pdfParse(pdfBuffer);
-                extractedText = parsed.text || "";
+                extractedText = await extractTextFromPdf(pdfBuffer);
                 if (extractedText.length > MAX_TEXT_LENGTH) {
                     extractedText = extractedText.substring(0, MAX_TEXT_LENGTH);
                     context.log(`Text truncated to ${MAX_TEXT_LENGTH} chars`);
