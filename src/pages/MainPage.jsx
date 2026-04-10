@@ -40,9 +40,15 @@ const CONVERSATION_CONTAINER = "Conversations";
 const DEFAULT_ASSISTANT_MESSAGE =
   "Hallo! Ich bin dein Wellbeing-Assistent. Ich bin hier, um dich zu unterstützen – ob bei Stress, Prüfungsangst oder wenn du einfach jemanden zum Reden brauchst. Wie kann ich dir heute helfen?";
 
+// =====================================================================
+// >>> NEUES MODELL HINZUFÜGEN? Hier einen neuen Eintrag ergänzen. <<<
+// Der "value" muss mit dem Key in der deploymentMap im Backend
+// (openai.js) übereinstimmen.
+// =====================================================================
 const MODEL_OPTIONS = [
   { value: "gpt5mini", label: "GPT-5 Mini", description: "Schnell & effizient" },
   { value: "gpt4o", label: "GPT-4o", description: "Ausführlich & empathisch" },
+  // { value: "neuesModell", label: "Neues Modell", description: "Beschreibung" },
 ];
 
 const buildDefaultMessages = () => [
