@@ -180,11 +180,41 @@ app.http("documentStatus", {
                 };
             }
 
-            if (job.status === "summarizing") {
-                return {
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ jobId: job.id, status: "summarizing" }),
-                };
+            // Summarization in progress or previously interrupted → retry LLM call
+            if (job.status === "summarizing" && job.extractedText) {
+                try {
+                    const deployment = deploymentMap[job.selectedModel] || deployment1;
+                    const summary = await summarizeWithLLM(job.extractedText, deployment);
+                    job.summary = summary;
+                    job.status = "completed";
+                    job.completedAt = Date.now();
+                    await container.item(jobId, jobId).replace(job);
+
+                    return {
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            jobId: job.id,
+                            status: job.status,
+                            summary: job.summary,
+                            extractedText: job.extractedText,
+                        }),
+                    };
+                } catch (llmErr) {
+                    context.log.error("LLM summarization retry failed:", llmErr);
+                    job.status = "completed";
+                    job.summary = `Textextraktion erfolgreich. Automatische Zusammenfassung fehlgeschlagen.\n\nExtrahierter Text:\n${job.extractedText.substring(0, 3000)}`;
+                    job.completedAt = Date.now();
+                    await container.item(jobId, jobId).replace(job);
+
+                    return {
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            jobId: job.id,
+                            status: job.status,
+                            summary: job.summary,
+                        }),
+                    };
+                }
             }
 
             return {
