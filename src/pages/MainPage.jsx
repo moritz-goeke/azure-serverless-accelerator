@@ -135,7 +135,7 @@ function MainPage() {
     docStatus === "completed" ? 3
     : docStatus === "summarizing" ? 2
     : docStatus === "analyzing" ? 1
-    : uploadingDoc ? 0
+    : uploadingDoc ? 2  // POST now does extract + summarize in one step
     : -1;
 
   const showSnackbar = React.useCallback((msg) => {
@@ -194,7 +194,16 @@ function MainPage() {
         });
         const res = await axios.post("/api/analyzeDocument", { document: base64, fileName: file.name, model: selectedModel });
         const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-        if (data.jobId) { pollDocumentStatus(data.jobId); showSnackbar("Dokument wird verarbeitet…"); }
+        if (data.status === "completed") {
+          // Summary returned directly from POST – no polling needed
+          setDocStatus("completed");
+          setDocSummary(data.summary || data.extractedText || "Keine Zusammenfassung verfügbar.");
+          showSnackbar("Dokument erfolgreich analysiert.");
+        } else if (data.jobId) {
+          // Fallback: poll if still processing
+          pollDocumentStatus(data.jobId);
+          showSnackbar("Dokument wird verarbeitet…");
+        }
       } catch {
         showSnackbar("Fehler beim Hochladen.");
         setDocStatus("failed");
