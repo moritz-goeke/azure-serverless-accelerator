@@ -80,12 +80,26 @@ jobs:
           subscription-id: ${{ github.event.inputs.azureSubscriptionId }}
 
       - name: Deploy Azure Functions backend
+        continue-on-error: true
         run: |
           az functionapp deployment source config-zip \
             --resource-group "${{ github.event.inputs.resourceGroup }}" \
             --name "${{ github.event.inputs.functionAppName }}" \
             --src "backend.zip" \
             --timeout 600
+
+      - name: Verify Functions deployment
+        run: |
+          echo "Verifying function registration..."
+          FUNC_COUNT=$(az functionapp function list \
+            --resource-group "${{ github.event.inputs.resourceGroup }}" \
+            --name "${{ github.event.inputs.functionAppName }}" \
+            --query "length(@)" -o tsv 2>/dev/null || echo "0")
+          echo "Registered functions: $FUNC_COUNT"
+          if [ "$FUNC_COUNT" -lt 1 ]; then
+            echo "::error::No functions registered after deployment!"
+            exit 1
+          fi
 
       - name: Upload Static Web App build
         run: |
