@@ -86,7 +86,7 @@ Antworte auf Deutsch. Sei präzise und sachlich. Verwende medizinische Fachbegri
                 content: `Bitte fasse folgende Krankenakte zusammen:\n\n${truncatedText}`,
             },
         ],
-        max_tokens: 4000,
+        max_tokens: 10000,
         temperature: 0.3,
     });
 
