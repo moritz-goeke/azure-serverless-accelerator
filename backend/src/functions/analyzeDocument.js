@@ -1,5 +1,7 @@
 const { app } = require("@azure/functions");
-const { DocumentAnalysisClient } = require("@azure/ai-form-recognizer");
+const DocumentIntelligence =
+    require("@azure-rest/ai-document-intelligence").default,
+  { isUnexpected } = require("@azure-rest/ai-document-intelligence");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
@@ -44,19 +46,33 @@ app.http("analyzeDocument", {
                 return { status: 400, body: "Missing document (base64) in request body." };
             }
 
-            const docBuffer = Buffer.from(document, "base64");
+            // Strip data-URL prefix if present (e.g. "data:application/pdf;base64,...")
+            const base64Data = document.includes(",") ? document.split(",")[1] : document;
 
-            const diClient = new DocumentAnalysisClient(diEndpoint, credential);
-            const poller = await diClient.beginAnalyzeDocument("prebuilt-layout", docBuffer);
+            const client = DocumentIntelligence(diEndpoint, credential);
 
-            const operationId = poller.operationId;
+            const initialResponse = await client
+                .path("/documentModels/{modelId}:analyze", "prebuilt-layout")
+                .post({
+                    contentType: "application/json",
+                    body: { base64Source: base64Data },
+                });
+
+            if (isUnexpected(initialResponse)) {
+                context.log.error("DI unexpected response:", initialResponse.body);
+                throw initialResponse.body.error || initialResponse.body;
+            }
+
+            const operationLocation = initialResponse.headers["operation-location"];
+            if (!operationLocation) {
+                throw new Error("No operation-location returned by Document Intelligence.");
+            }
 
             const jobId = uuidv4();
             const jobRecord = {
                 id: jobId,
                 type: JOBS_CONTAINER,
-                operationId,
-                diEndpoint,
+                operationLocation,
                 status: "analyzing",
                 fileName: fileName || "document",
                 selectedModel: model || "gpt5mini",

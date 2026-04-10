@@ -1,13 +1,12 @@
 const { app } = require("@azure/functions");
-const { DocumentAnalysisClient } = require("@azure/ai-form-recognizer");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { AzureOpenAI } = require("openai");
+const axios = require("axios");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
-const diEndpoint = process.env["DOCUMENT_INTELLIGENCE_ENDPOINT"];
 const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
 const cosmosContainerName = process.env["COSMOS_CONTAINER_NAME"] || "items";
@@ -121,15 +120,18 @@ app.http("documentStatus", {
                 };
             }
 
+            // DI analysis in progress → poll the operation-location URL directly
             if (job.status === "analyzing") {
-                const diClient = new DocumentAnalysisClient(diEndpoint, credential);
-                const poller = await diClient.beginAnalyzeDocument("prebuilt-layout", Buffer.from(""), {
-                    resumeFrom: job.operationId,
+                const tokenResponse = await credential.getToken("https://cognitiveservices.azure.com/.default");
+                const res = await axios.get(job.operationLocation, {
+                    headers: { "Authorization": `Bearer ${tokenResponse.token}` },
                 });
 
-                if (poller.getOperationState().status === "succeeded") {
-                    const result = await poller.pollUntilDone();
-                    const extractedText = extractTextFromResult(result);
+                const diStatus = res.data.status;
+
+                if (diStatus === "succeeded") {
+                    const analyzeResult = res.data.analyzeResult;
+                    const extractedText = extractTextFromResult(analyzeResult);
 
                     job.extractedText = extractedText;
                     job.status = "summarizing";
@@ -161,7 +163,7 @@ app.http("documentStatus", {
                     };
                 }
 
-                if (poller.getOperationState().status === "failed") {
+                if (diStatus === "failed") {
                     job.status = "failed";
                     job.error = "Dokumentanalyse fehlgeschlagen.";
                     await container.item(jobId, jobId).replace(job);
@@ -171,6 +173,7 @@ app.http("documentStatus", {
                     };
                 }
 
+                // Still running
                 return {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ jobId: job.id, status: "analyzing" }),
