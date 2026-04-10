@@ -56,7 +56,6 @@ const summarizeWithLLM = async (text, deploymentName, context) => {
         apiVersion,
         deployment: deploymentName,
         azureADTokenProvider: getAzureAdToken,
-        timeout: LLM_TIMEOUT_MS,
     });
     context.log(`[LLM] Client created in ${Date.now() - t0}ms`);
 
@@ -68,7 +67,6 @@ const summarizeWithLLM = async (text, deploymentName, context) => {
 
     const t1 = Date.now();
     const response = await client.chat.completions.create({
-        model: deploymentName,
         messages: [
             {
                 role: "system",
@@ -88,8 +86,8 @@ Antworte auf Deutsch. Sei präzise und sachlich. Verwende medizinische Fachbegri
                 content: `Bitte fasse folgende Krankenakte zusammen:\n\n${truncatedText}`,
             },
         ],
-        max_completion_tokens: 10000,
-        temperature: 0.3,
+        model: deploymentName,
+        max_completion_tokens: 16384,
     });
     context.log(`[LLM] Response received in ${Date.now() - t1}ms (total ${Date.now() - t0}ms), usage: ${JSON.stringify(response.usage)}`);
 
