@@ -136,7 +136,7 @@ function MainPage() {
   const pollingRef = React.useRef(null);
 
   const activeStep =
-    docStatus === "completed" ? 3
+    docStatus === "completed" ? 4
     : docStatus === "summarizing" ? 2
     : docStatus === "analyzing" ? 1
     : uploadingDoc ? 2  // POST now does extract + summarize in one step
@@ -198,24 +198,38 @@ function MainPage() {
           r.readAsDataURL(file);
         });
         const res = await axios.post("/api/analyzeDocument", { document: base64, fileName: file.name, model: selectedModel });
-        const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-        console.log("analyzeDocument response:", data);
-        if (data.status === "completed") {
-          // Summary returned directly from POST – no polling needed
+        console.log("analyzeDocument raw response:", typeof res.data, res.data);
+        // Parse response – handle string, nested body, or direct object
+        let data = res.data;
+        if (typeof data === "string") {
+          try { data = JSON.parse(data); } catch { console.error("Failed to parse response string"); }
+        }
+        // Azure Functions sometimes wraps response in a body property
+        if (data && typeof data.body === "string") {
+          try { data = JSON.parse(data.body); } catch { data = data.body; }
+        }
+        console.log("analyzeDocument parsed data:", data);
+        console.log("data.status:", data?.status, "data.summary length:", data?.summary?.length, "data.extractedText length:", data?.extractedText?.length);
+
+        const summary = data?.summary || data?.extractedText || "Keine Zusammenfassung verf\u00fcgbar.";
+        if (data?.status === "completed" || data?.summary) {
+          // Summary returned directly from POST \u2013 no polling needed
           setDocStatus("completed");
-          setDocSummary(data.summary || data.extractedText || "Keine Zusammenfassung verfügbar.");
-          setDocExtractedText(data.extractedText || null);
+          setDocSummary(summary);
+          setDocExtractedText(data?.extractedText || summary);
           showSnackbar("Dokument erfolgreich analysiert.");
-        } else if (data.jobId) {
+        } else if (data?.jobId) {
           // Fallback: poll if still processing
           pollDocumentStatus(data.jobId);
-          showSnackbar("Dokument wird verarbeitet…");
+          showSnackbar("Dokument wird verarbeitet\u2026");
         } else {
-          // Unexpected response
+          // Unexpected response \u2013 still try to show whatever we got
           console.error("Unexpected analyzeDocument response:", data);
-          showSnackbar("Unerwartete Antwort vom Server.");
-          setDocStatus("failed");
+          setDocStatus("completed");
+          setDocSummary(summary);
+          showSnackbar("Antwort erhalten.");
         }
+
       } catch {
         showSnackbar("Fehler beim Hochladen.");
         setDocStatus("failed");
