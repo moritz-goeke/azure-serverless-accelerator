@@ -126,7 +126,8 @@ jobs:
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --name "$FUNCTION_APP_NAME" \
             --src "backend.zip" \
-            --build-remote true
+            --build-remote true \
+            --timeout 600
 
       - name: Install Static Web Apps CLI
         run: npm install --global @azure/static-web-apps-cli
