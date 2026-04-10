@@ -2,17 +2,9 @@ const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
-const path = require("path");
 const dotenv = require("dotenv");
 
 dotenv.config();
-
-// pdfjs-dist (modern version) for reliable PDF text extraction
-const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.mjs");
-const standardFontDataUrl = path.join(
-    path.dirname(require.resolve("pdfjs-dist/package.json")),
-    "standard_fonts"
-) + "/";
 
 const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
@@ -27,22 +19,13 @@ const getCosmosContainer = () => {
     return client.database(cosmosDbName).container(cosmosContainerName);
 };
 
-/** Extract text from all pages of a PDF buffer using pdfjs-dist */
+/** Extract text from all pages of a PDF buffer using unpdf (lightweight pdfjs wrapper) */
 const extractTextFromPdf = async (pdfBuffer) => {
+    const { extractText } = await import("unpdf");
     const data = new Uint8Array(pdfBuffer);
-    const doc = await pdfjsLib.getDocument({ data, standardFontDataUrl, useSystemFonts: true }).promise;
-    const pages = [];
-    for (let i = 1; i <= doc.numPages; i++) {
-        try {
-            const page = await doc.getPage(i);
-            const tc = await page.getTextContent();
-            pages.push(tc.items.map((it) => it.str).join(" "));
-        } catch {
-            // skip unreadable pages
-            pages.push("");
-        }
-    }
-    return pages.join("\n");
+    const result = await extractText(data);
+    // result.text is an array of strings (one per page)
+    return Array.isArray(result.text) ? result.text.join("\n") : String(result.text || "");
 };
 
 app.http("analyzeDocument", {
