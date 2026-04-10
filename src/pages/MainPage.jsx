@@ -15,8 +15,10 @@ import {
   AccordionSummary,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   InputAdornment,
   LinearProgress,
@@ -123,7 +125,9 @@ function MainPage() {
   const [uploadingDoc, setUploadingDoc] = React.useState(false);
   const [docStatus, setDocStatus] = React.useState(null);
   const [docSummary, setDocSummary] = React.useState(null);
+  const [docExtractedText, setDocExtractedText] = React.useState(null);
   const [docFileName, setDocFileName] = React.useState(null);
+  const [useDocContext, setUseDocContext] = React.useState(true);
   const [dragOver, setDragOver] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const messagesRef = React.useRef(null);
@@ -183,6 +187,7 @@ function MainPage() {
       if (file.size > 10 * 1024 * 1024) { showSnackbar("Datei zu groß (max. 10 MB)."); return; }
       setUploadingDoc(true);
       setDocSummary(null);
+      setDocExtractedText(null);
       setDocStatus(null);
       setDocFileName(file.name);
       try {
@@ -194,15 +199,22 @@ function MainPage() {
         });
         const res = await axios.post("/api/analyzeDocument", { document: base64, fileName: file.name, model: selectedModel });
         const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        console.log("analyzeDocument response:", data);
         if (data.status === "completed") {
           // Summary returned directly from POST – no polling needed
           setDocStatus("completed");
           setDocSummary(data.summary || data.extractedText || "Keine Zusammenfassung verfügbar.");
+          setDocExtractedText(data.extractedText || null);
           showSnackbar("Dokument erfolgreich analysiert.");
         } else if (data.jobId) {
           // Fallback: poll if still processing
           pollDocumentStatus(data.jobId);
           showSnackbar("Dokument wird verarbeitet…");
+        } else {
+          // Unexpected response
+          console.error("Unexpected analyzeDocument response:", data);
+          showSnackbar("Unerwartete Antwort vom Server.");
+          setDocStatus("failed");
         }
       } catch {
         showSnackbar("Fehler beim Hochladen.");
@@ -305,7 +317,12 @@ function MainPage() {
     setLoadingAnswer(true);
     setWriting(true);
     try {
-      const response = await axios.post("/api/openai", { message: trimmedText, conversation: JSON.stringify(conversation), model: selectedModel });
+      const response = await axios.post("/api/openai", {
+        message: trimmedText,
+        conversation: JSON.stringify(conversation),
+        model: selectedModel,
+        ...(useDocContext && docExtractedText ? { documentContext: docExtractedText, documentName: docFileName } : {}),
+      });
       let data = response.data;
       if (typeof data === "string") try { data = JSON.parse(data); } catch {}
       const gptContent = data?.choices?.[0]?.message?.content || "(Keine Antwort erhalten)";
@@ -646,6 +663,24 @@ function MainPage() {
 
           {/* Chat Input */}
           <Box sx={{ px: 2, py: 1.5, borderTop: "1px solid #e0e6ec" }}>
+            {docSummary && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={useDocContext}
+                    onChange={(e) => setUseDocContext(e.target.checked)}
+                    size="small"
+                    sx={{ py: 0, color: PRIMARY_TEAL, "&.Mui-checked": { color: PRIMARY_TEAL } }}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 12, color: "#7a8da0" }}>
+                    Dokument „{docFileName}“ als Kontext verwenden
+                  </Typography>
+                }
+                sx={{ mb: 0.5, ml: 0 }}
+              />
+            )}
             <TextField
               disabled={writing}
               variant="outlined"
