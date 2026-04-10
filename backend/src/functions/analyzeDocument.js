@@ -1,21 +1,19 @@
 const { app } = require("@azure/functions");
-const DocumentIntelligence =
-    require("@azure-rest/ai-document-intelligence").default,
-  { isUnexpected } = require("@azure-rest/ai-document-intelligence");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
+const pdfParse = require("pdf-parse");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
-const diEndpoint = process.env["DOCUMENT_INTELLIGENCE_ENDPOINT"];
 const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
 const cosmosContainerName = process.env["COSMOS_CONTAINER_NAME"] || "items";
 const credential = new DefaultAzureCredential();
 
 const JOBS_CONTAINER = "DocumentJobs";
+const MAX_TEXT_LENGTH = 500_000; // max chars to store per document
 
 const getCosmosContainer = () => {
     const client = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
@@ -28,10 +26,6 @@ app.http("analyzeDocument", {
     handler: async (request, context) => {
         context.log("analyzeDocument invoked");
         try {
-            if (!diEndpoint) {
-                return { status: 500, body: "Document Intelligence endpoint not configured." };
-            }
-
             const contentType = request.headers.get("content-type") || "";
             let body;
             if (contentType.includes("application/json")) {
@@ -49,37 +43,39 @@ app.http("analyzeDocument", {
             // Strip data-URL prefix if present (e.g. "data:application/pdf;base64,...")
             const base64Data = document.includes(",") ? document.split(",")[1] : document;
 
-            const client = DocumentIntelligence(diEndpoint, credential);
+            // Parse PDF directly with pdf-parse (no Document Intelligence needed)
+            const pdfBuffer = Buffer.from(base64Data, "base64");
+            context.log(`Parsing PDF (${Math.round(pdfBuffer.length / 1024)} KB)`);
 
-            context.log(`Submitting document to DI (${Math.round(base64Data.length / 1024)} KB base64)`);
-            const initialResponse = await client
-                .path("/documentModels/{modelId}:analyze", "prebuilt-layout")
-                .post({
-                    contentType: "application/json",
-                    body: { base64Source: base64Data },
-                    headers: { "Content-Type": "application/json" },
-                });
-
-            if (isUnexpected(initialResponse)) {
-                context.log.error("DI unexpected response:", initialResponse.body);
-                throw initialResponse.body.error || initialResponse.body;
+            let extractedText = "";
+            try {
+                const parsed = await pdfParse(pdfBuffer);
+                extractedText = parsed.text || "";
+                if (extractedText.length > MAX_TEXT_LENGTH) {
+                    extractedText = extractedText.substring(0, MAX_TEXT_LENGTH);
+                    context.log(`Text truncated to ${MAX_TEXT_LENGTH} chars`);
+                }
+            } catch (parseError) {
+                context.log.error("PDF parse failed:", parseError);
+                return { status: 400, body: JSON.stringify({ error: "PDF konnte nicht gelesen werden. Bitte stellen Sie sicher, dass es ein gültiges PDF ist." }) };
             }
 
-            const operationLocation = initialResponse.headers["operation-location"];
-            if (!operationLocation) {
-                throw new Error("No operation-location returned by Document Intelligence.");
+            if (!extractedText.trim()) {
+                return { status: 400, body: JSON.stringify({ error: "Kein Text im PDF gefunden. Das Dokument ist möglicherweise bildbasiert (gescannt)." }) };
             }
 
+            context.log(`Extracted ${extractedText.length} chars from PDF`);
+
+            // Store job with extracted text, ready for summarization
             const jobId = uuidv4();
             const jobRecord = {
                 id: jobId,
                 type: JOBS_CONTAINER,
-                operationLocation,
-                status: "analyzing",
+                status: "summarizing",
                 fileName: fileName || "document",
                 selectedModel: model || "gpt5mini",
                 createdAt: Date.now(),
-                extractedText: null,
+                extractedText,
                 summary: null,
                 error: null,
             };
@@ -89,11 +85,11 @@ app.http("analyzeDocument", {
 
             return {
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ jobId, status: "analyzing" }),
+                body: JSON.stringify({ jobId, status: "summarizing" }),
             };
         } catch (e) {
             context.log.error("analyzeDocument error:", e);
-            return { status: 500, body: JSON.stringify({ error: "Failed to start document analysis." }) };
+            return { status: 500, body: JSON.stringify({ error: "Dokumentverarbeitung fehlgeschlagen." }) };
         }
     },
 });

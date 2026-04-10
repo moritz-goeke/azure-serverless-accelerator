@@ -65,7 +65,7 @@ const MODELS = [
 
 const POLL_INTERVAL_MS = 5000;
 
-const STEPS = ["Hochladen", "Textextraktion", "KI-Zusammenfassung", "Fertig"];
+const STEPS = ["Hochladen", "Text extrahieren", "KI-Zusammenfassung", "Fertig"];
 
 const buildDefaultMessages = () => [
   { from: "gpt", message: DEFAULT_ASSISTANT_MESSAGE },
@@ -153,7 +153,7 @@ function MainPage() {
   const pollDocumentStatus = React.useCallback(
     (jobId) => {
       stopPolling();
-      setDocStatus("analyzing");
+      setDocStatus("summarizing");
       pollingRef.current = setInterval(async () => {
         try {
           const res = await axios.get(`/api/documentStatus/${jobId}`);

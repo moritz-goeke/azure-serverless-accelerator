@@ -2,7 +2,6 @@ const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
 const { AzureOpenAI } = require("openai");
-const axios = require("axios");
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -34,28 +33,6 @@ const deploymentMap = {
 const getCosmosContainer = () => {
     const client = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
     return client.database(cosmosDbName).container(cosmosContainerName);
-};
-
-const extractTextFromResult = (result) => {
-    const lines = [];
-    if (result.pages) {
-        for (const page of result.pages) {
-            if (page.lines) {
-                for (const line of page.lines) {
-                    lines.push(line.content);
-                }
-            }
-        }
-    }
-    if (result.tables) {
-        for (const table of result.tables) {
-            lines.push("\n[Tabelle]");
-            for (const cell of table.cells) {
-                lines.push(`  Zeile ${cell.rowIndex}, Spalte ${cell.columnIndex}: ${cell.content}`);
-            }
-        }
-    }
-    return lines.join("\n");
 };
 
 const summarizeWithLLM = async (text, deploymentName) => {
@@ -121,6 +98,7 @@ app.http("documentStatus", {
                 return { status: 404, body: JSON.stringify({ error: "Job nicht gefunden." }) };
             }
 
+            // Already done or failed → return immediately
             if (job.status === "completed" || job.status === "failed") {
                 return {
                     headers: { "Content-Type": "application/json" },
@@ -134,68 +112,7 @@ app.http("documentStatus", {
                 };
             }
 
-            // DI analysis in progress → poll the operation-location URL directly
-            if (job.status === "analyzing") {
-                const tokenResponse = await credential.getToken("https://cognitiveservices.azure.com/.default");
-                const res = await axios.get(job.operationLocation, {
-                    headers: { "Authorization": `Bearer ${tokenResponse.token}` },
-                    timeout: 15_000,
-                });
-
-                const diStatus = res.data.status;
-
-                if (diStatus === "succeeded") {
-                    const analyzeResult = res.data.analyzeResult;
-                    const extractedText = extractTextFromResult(analyzeResult);
-
-                    job.extractedText = extractedText;
-                    job.status = "summarizing";
-                    await container.item(jobId, jobId).replace(job);
-
-                    try {
-                        const deployment = deploymentMap[job.selectedModel] || deployment1;
-                        const summary = await summarizeWithLLM(extractedText, deployment);
-                        job.summary = summary;
-                        job.status = "completed";
-                        job.completedAt = Date.now();
-                        await container.item(jobId, jobId).replace(job);
-                    } catch (llmErr) {
-                        context.log.error("LLM summarization failed:", llmErr);
-                        job.status = "completed";
-                        job.summary = `Textextraktion erfolgreich. Automatische Zusammenfassung fehlgeschlagen.\n\nExtrahierter Text:\n${extractedText.substring(0, 3000)}`;
-                        job.completedAt = Date.now();
-                        await container.item(jobId, jobId).replace(job);
-                    }
-
-                    return {
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            jobId: job.id,
-                            status: job.status,
-                            summary: job.summary,
-                            extractedText: job.extractedText,
-                        }),
-                    };
-                }
-
-                if (diStatus === "failed") {
-                    job.status = "failed";
-                    job.error = "Dokumentanalyse fehlgeschlagen.";
-                    await container.item(jobId, jobId).replace(job);
-                    return {
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ jobId: job.id, status: "failed", error: job.error }),
-                    };
-                }
-
-                // Still running
-                return {
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ jobId: job.id, status: "analyzing" }),
-                };
-            }
-
-            // Summarization in progress or previously interrupted → retry LLM call
+            // Text extracted, needs LLM summarization
             if (job.status === "summarizing" && job.extractedText) {
                 try {
                     const deployment = deploymentMap[job.selectedModel] || deployment1;
@@ -215,7 +132,8 @@ app.http("documentStatus", {
                         }),
                     };
                 } catch (llmErr) {
-                    context.log.error("LLM summarization retry failed:", llmErr);
+                    context.log.error("LLM summarization failed:", llmErr);
+                    // Fallback: return extracted text without summary
                     job.status = "completed";
                     job.summary = `Textextraktion erfolgreich. Automatische Zusammenfassung fehlgeschlagen.\n\nExtrahierter Text:\n${job.extractedText.substring(0, 3000)}`;
                     job.completedAt = Date.now();
@@ -232,6 +150,7 @@ app.http("documentStatus", {
                 }
             }
 
+            // Unknown / unexpected status
             return {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ jobId: job.id, status: job.status }),

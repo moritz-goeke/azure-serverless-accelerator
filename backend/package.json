@@ -7,13 +7,12 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "@azure-rest/ai-document-intelligence": "^1.0.0",
     "@azure/cosmos": "^4.2.0",
     "@azure/functions": "^4.0.0",
     "@azure/identity": "^4.13.0",
-    "axios": "^1.7.0",
     "dotenv": "^16.4.5",
     "openai": "^4.87.1",
+    "pdf-parse": "^1.1.1",
     "uuid": "^11.0.3"
   },
   "main": "src/{index.js,functions/*.js}"
