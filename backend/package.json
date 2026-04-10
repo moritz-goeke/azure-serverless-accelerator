@@ -12,7 +12,7 @@
     "@azure/identity": "^4.13.0",
     "dotenv": "^16.4.5",
     "openai": "^4.87.1",
-    "pdfjs-dist": "^4.10.38",
+    "unpdf": "^1.4.0",
     "uuid": "^11.0.3"
   },
   "main": "src/{index.js,functions/*.js}"
