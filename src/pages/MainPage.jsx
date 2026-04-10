@@ -57,7 +57,7 @@ const MODELS = [
   { value: "gpt4o", label: "GPT-4o – präzise" },
 ];
 
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 5000;
 
 const STEPS = ["Hochladen", "Textextraktion", "KI-Zusammenfassung", "Fertig"];
 

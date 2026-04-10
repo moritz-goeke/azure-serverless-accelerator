@@ -51,11 +51,13 @@ app.http("analyzeDocument", {
 
             const client = DocumentIntelligence(diEndpoint, credential);
 
+            context.log(`Submitting document to DI (${Math.round(base64Data.length / 1024)} KB base64)`);
             const initialResponse = await client
                 .path("/documentModels/{modelId}:analyze", "prebuilt-layout")
                 .post({
                     contentType: "application/json",
                     body: { base64Source: base64Data },
+                    headers: { "Content-Type": "application/json" },
                 });
 
             if (isUnexpected(initialResponse)) {

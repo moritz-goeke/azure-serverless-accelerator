@@ -16,6 +16,7 @@ const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"];
 const credential = new DefaultAzureCredential();
 
 const JOBS_CONTAINER = "DocumentJobs";
+const MAX_LLM_INPUT_CHARS = 30_000; // truncate extracted text sent to LLM to fit context window
 
 const deploymentMap = {
     gpt5mini: deployment1,
@@ -59,6 +60,11 @@ const summarizeWithLLM = async (text, deploymentName) => {
         apiVersion: "2024-10-21",
     });
 
+    // Truncate to avoid exceeding context window
+    const truncatedText = text.length > MAX_LLM_INPUT_CHARS
+        ? text.substring(0, MAX_LLM_INPUT_CHARS) + `\n\n[… Text gekürzt, ${text.length - MAX_LLM_INPUT_CHARS} Zeichen ausgelassen]`
+        : text;
+
     const response = await client.chat.completions.create({
         model: deploymentName,
         messages: [
@@ -77,10 +83,10 @@ Antworte auf Deutsch. Sei präzise und sachlich. Verwende medizinische Fachbegri
             },
             {
                 role: "user",
-                content: `Bitte fasse folgende Krankenakte zusammen:\n\n${text}`,
+                content: `Bitte fasse folgende Krankenakte zusammen:\n\n${truncatedText}`,
             },
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.3,
     });
 
@@ -125,6 +131,7 @@ app.http("documentStatus", {
                 const tokenResponse = await credential.getToken("https://cognitiveservices.azure.com/.default");
                 const res = await axios.get(job.operationLocation, {
                     headers: { "Authorization": `Bearer ${tokenResponse.token}` },
+                    timeout: 15_000,
                 });
 
                 const diStatus = res.data.status;
