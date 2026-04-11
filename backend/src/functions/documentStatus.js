@@ -1,7 +1,6 @@
 const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { CosmosClient } = require("@azure/cosmos");
-const { AzureOpenAI } = require("openai");
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -9,73 +8,11 @@ dotenv.config();
 const cosmosEndpoint = process.env["COSMOS_ENDPOINT"];
 const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
 const cosmosContainerName = process.env["COSMOS_CONTAINER_NAME"] || "items";
-const openAiEndpoint = process.env["AZURE_OPENAI_ENDPOINT"];
-// =====================================================================
-// >>> NEUES MODELL HINZUFÜGEN? <<<
-// 1. Neue Env-Variable anlegen (z.B. AZURE_OPENAI_DEPLOYMENT_3)
-//    → in Bicep (infra/main.bicep) und in den App-Settings ergänzen.
-// 2. Hier einlesen und unten in deploymentMap eintragen.
-// =====================================================================
-const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"];
-const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"];
 const credential = new DefaultAzureCredential();
-
-const JOBS_CONTAINER = "DocumentJobs";
-const MAX_LLM_INPUT_CHARS = 30_000; // truncate extracted text sent to LLM to fit context window
-
-// >>> NEUES MODELL HINZUFÜGEN? Key muss zum "value" im Frontend (MODELS-Array) passen. <<<
-const deploymentMap = {
-    gpt5mini: deployment1,
-    gpt4o: deployment2,
-    // neuesModell: deployment3,
-};
 
 const getCosmosContainer = () => {
     const client = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
     return client.database(cosmosDbName).container(cosmosContainerName);
-};
-
-const summarizeWithLLM = async (text, deploymentName) => {
-    const client = new AzureOpenAI({
-        endpoint: openAiEndpoint,
-        azureADTokenProvider: async () => {
-            const token = await credential.getToken("https://cognitiveservices.azure.com/.default");
-            return token.token;
-        },
-        apiVersion: "2024-10-21",
-    });
-
-    // Truncate to avoid exceeding context window
-    const truncatedText = text.length > MAX_LLM_INPUT_CHARS
-        ? text.substring(0, MAX_LLM_INPUT_CHARS) + `\n\n[… Text gekürzt, ${text.length - MAX_LLM_INPUT_CHARS} Zeichen ausgelassen]`
-        : text;
-
-    const response = await client.chat.completions.create({
-        model: deploymentName,
-        messages: [
-            {
-                role: "system",
-                content: `Du bist ein medizinischer Dokumentations-Assistent. Fasse die folgende Krankenakte strukturiert zusammen. Verwende folgende Abschnitte wenn zutreffend:
-
-- **Patienteninformationen** (soweit vorhanden)
-- **Diagnosen**
-- **Befunde & Untersuchungsergebnisse**
-- **Medikation**
-- **Behandlungsverlauf**
-- **Empfehlungen / Nächste Schritte**
-
-Antworte auf Deutsch. Sei präzise und sachlich. Verwende medizinische Fachbegriffe korrekt.`,
-            },
-            {
-                role: "user",
-                content: `Bitte fasse folgende Krankenakte zusammen:\n\n${truncatedText}`,
-            },
-        ],
-        max_tokens: 3000,
-        temperature: 0.3,
-    });
-
-    return response.choices[0]?.message?.content || "Zusammenfassung konnte nicht erstellt werden.";
 };
 
 app.http("documentStatus", {
@@ -98,62 +35,16 @@ app.http("documentStatus", {
                 return { status: 404, body: JSON.stringify({ error: "Job nicht gefunden." }) };
             }
 
-            // Already done or failed → return immediately
-            if (job.status === "completed" || job.status === "failed") {
-                return {
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        jobId: job.id,
-                        status: job.status,
-                        summary: job.summary,
-                        extractedText: job.extractedText,
-                        error: job.error,
-                    }),
-                };
-            }
-
-            // Text extracted, needs LLM summarization
-            if (job.status === "summarizing" && job.extractedText) {
-                try {
-                    const deployment = deploymentMap[job.selectedModel] || deployment1;
-                    const summary = await summarizeWithLLM(job.extractedText, deployment);
-                    job.summary = summary;
-                    job.status = "completed";
-                    job.completedAt = Date.now();
-                    await container.item(jobId, jobId).replace(job);
-
-                    return {
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            jobId: job.id,
-                            status: job.status,
-                            summary: job.summary,
-                            extractedText: job.extractedText,
-                        }),
-                    };
-                } catch (llmErr) {
-                    context.log.error("LLM summarization failed:", llmErr);
-                    // Fallback: return extracted text without summary
-                    job.status = "completed";
-                    job.summary = `Textextraktion erfolgreich. Automatische Zusammenfassung fehlgeschlagen.\n\nExtrahierter Text:\n${job.extractedText.substring(0, 3000)}`;
-                    job.completedAt = Date.now();
-                    await container.item(jobId, jobId).replace(job);
-
-                    return {
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            jobId: job.id,
-                            status: job.status,
-                            summary: job.summary,
-                        }),
-                    };
-                }
-            }
-
-            // Unknown / unexpected status
+            // Return current job state (read-only – summarization now happens in analyzeDocument)
             return {
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ jobId: job.id, status: job.status }),
+                body: JSON.stringify({
+                    jobId: job.id,
+                    status: job.status,
+                    summary: job.summary,
+                    extractedText: job.extractedText,
+                    error: job.error,
+                }),
             };
         } catch (e) {
             context.log.error("documentStatus error:", e);

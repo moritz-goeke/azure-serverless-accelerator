@@ -63,6 +63,8 @@ app.http("openai", {
       const conversationPayload =
         body?.conversation ?? request.params?.conversation;
       const requestedModel = body?.model || "gpt5mini";
+      const documentContext = body?.documentContext || null;
+      const documentName = body?.documentName || "Dokument";
       const deployment = deploymentMap[requestedModel] || deployment1;
 
       if (!requestMessage) {
@@ -91,8 +93,23 @@ app.http("openai", {
           content: entry.message,
         }));
 
+      // Build system messages with optional document context
+      const systemMessages = [];
+      if (documentContext) {
+        systemMessages.push({
+          role: "system",
+          content: `Du bist ein medizinischer Dokumentationsassistent. Dir steht die folgende Krankenakte als Kontext zur Verfügung. Nutze dieses Dokument, um die Fragen des Nutzers zu beantworten. Beziehe dich auf das Dokument, wenn es relevant ist. Antworte auf Deutsch.\n\n--- Dokument: ${documentName} ---\n${documentContext}`,
+        });
+        context.log(`Document context loaded: ${documentName} (${documentContext.length} chars)`);
+      } else {
+        systemMessages.push({
+          role: "system",
+          content: "Du bist ein medizinischer Dokumentationsassistent. Beantworte Fragen zu medizinischen Dokumenten, Diagnosen und Krankenakten. Antworte auf Deutsch. Sei präzise und sachlich.",
+        });
+      }
+
       const completionObject = {
-        messages: messageArray,
+        messages: [...systemMessages, ...messageArray],
         model: deployment,
         max_completion_tokens: 16384,
       };
