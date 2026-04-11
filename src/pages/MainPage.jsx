@@ -395,7 +395,7 @@ function MainPage() {
                 letterSpacing: 0.3,
               }}
             >
-              Uni Wellbeing
+              LMU-AI3
             </Typography>
             <Typography
               sx={{
