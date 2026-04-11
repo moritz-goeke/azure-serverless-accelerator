@@ -329,7 +329,7 @@ function MainPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
           <LocalHospitalIcon sx={{ color: PRIMARY_TEAL, fontSize: 28 }} />
           <Typography sx={{ fontFamily: "'Inter',sans-serif", fontSize: 19, fontWeight: 700, color: "#1a2b3c", letterSpacing: -0.3 }}>
-            MedDoc
+            MedDoc3000
           </Typography>
           <Typography sx={{ fontSize: 13, color: "#7a8da0", ml: 0.5, fontWeight: 400 }}>
             Krankenakten-Zusammenfassung
