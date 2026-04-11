@@ -6,17 +6,11 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
-// =====================================================================
-// >>> NEUES MODELL HINZUFÜGEN? <<<
-// 1. Neue Env-Variable anlegen (z.B. AZURE_OPENAI_DEPLOYMENT_3)
-//    → in Bicep (infra/main.bicep) und in den App-Settings ergänzen.
-// 2. Hier einlesen und unten in deploymentMap eintragen.
-// 3. Im Frontend: MODEL_OPTIONS in src/pages/MainPage.jsx erweitern
-//    (value muss zum Key hier passen).
-// =====================================================================
-const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
-const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o";
-const apiVersion = "2024-10-01-preview";
+const deployment1 =
+  process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt-5.4-mini-2";
+const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"] || deployment1;
+const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+const apiVersion = "2024-12-01-preview";
 const credential = new DefaultAzureCredential();
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
 
@@ -24,7 +18,7 @@ const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
 const deploymentMap = {
   gpt5mini: deployment1,
   gpt4o: deployment2,
-  // neuesModell: deployment3,
+  // neuesModell: deployment3
 };
 
 const getAzureAdToken = async () => {
@@ -65,7 +59,7 @@ app.http("openai", {
       const conversationPayload =
         body?.conversation ?? request.params?.conversation;
       const requestedModel = body?.model || "gpt5mini";
-      const deployment = deploymentMap[requestedModel] || deployment1;
+      const selectedDeployment = deploymentMap[requestedModel] || deployment1;
 
       if (!requestMessage) {
         return { status: 400, body: "Missing message payload" };
@@ -95,16 +89,25 @@ app.http("openai", {
 
       const completionObject = {
         messages: messageArray,
-        model: deployment,
+        model: selectedDeployment,
         max_completion_tokens: 16384,
       };
 
-      const client = new AzureOpenAI({
-        endpoint,
-        apiVersion,
-        deployment,
-        azureADTokenProvider: getAzureAdToken,
-      });
+      const client = new AzureOpenAI(
+        apiKey
+          ? {
+              endpoint,
+              apiVersion,
+              deployment: selectedDeployment,
+              apiKey,
+            }
+          : {
+              endpoint,
+              apiVersion,
+              deployment: selectedDeployment,
+              azureADTokenProvider: getAzureAdToken,
+            }
+      );
       const result = await client.chat.completions.create(completionObject);
 
       return { body: JSON.stringify(result) };
