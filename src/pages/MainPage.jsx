@@ -352,7 +352,7 @@ function MainPage() {
           </Box>
           <Box>
             <Typography sx={{ fontSize: 17, fontWeight: 700, color: TEXT_PRIMARY, lineHeight: 1.2, letterSpacing: -0.3 }}>
-              KI-Chatbot 456
+              KI-Chatbot v0.1
             </Typography>
             <Typography sx={{ fontSize: 11, color: TEXT_SECONDARY, fontWeight: 500 }}>
               für den Unterricht
