@@ -40,15 +40,12 @@ const CONVERSATION_CONTAINER = "Conversations";
 const DEFAULT_ASSISTANT_MESSAGE =
   "Hallo! Ich bin dein Wellbeing-Assistent. Ich bin hier, um dich zu unterstützen – ob bei Stress, Prüfungsangst oder wenn du einfach jemanden zum Reden brauchst. Wie kann ich dir heute helfen?";
 
-// =====================================================================
-// >>> NEUES MODELL HINZUFÜGEN? Hier einen neuen Eintrag ergänzen. <<<
-// Der "value" muss mit dem Key in der deploymentMap im Backend
-// (openai.js) übereinstimmen.
-// =====================================================================
-const MODEL_OPTIONS = [
+const DEFAULT_MODEL_OPTIONS = [
   { value: "gpt5mini", label: "GPT-5 Mini", description: "Schnell & effizient" },
   { value: "gpt4o", label: "GPT-4o", description: "Ausführlich & empathisch" },
-  // { value: "neuesModell", label: "Neues Modell", description: "Beschreibung" },
+  { value: "gpt41", label: "GPT-4.1", description: "Starke Textqualität" },
+  { value: "gpt41mini", label: "GPT-4.1 Mini", description: "Kostenbewusst" },
+  { value: "o3mini", label: "o3-mini", description: "Reasoning-fokussiert" },
 ];
 
 const buildDefaultMessages = () => [
@@ -102,7 +99,10 @@ const buildDefaultTitle = () => formatConversationTimestamp(Date.now()) || "";
 const fontMain = { fontFamily: "'Nunito', sans-serif" };
 
 function MainPage() {
-  const [selectedModel, setSelectedModel] = React.useState("gpt5mini");
+  const [modelOptions, setModelOptions] = React.useState(DEFAULT_MODEL_OPTIONS);
+  const [selectedModel, setSelectedModel] = React.useState(
+    DEFAULT_MODEL_OPTIONS[0]?.value || "gpt5mini"
+  );
   const [inputText, setInputText] = React.useState("");
   const [chatArray, setChatArray] = React.useState([]);
   const [typewriterIndex, setTypewriterIndex] = React.useState(null);
@@ -161,6 +161,24 @@ function MainPage() {
     return sorted;
   }, []);
 
+  const fetchModelOptions = React.useCallback(async () => {
+    try {
+      const response = await axios.get("/api/models");
+      const parsed = normalizeResponsePayload(response.data) || {};
+      const models = Array.isArray(parsed.models) ? parsed.models : [];
+      if (!models.length) return;
+
+      setModelOptions(models);
+      const backendDefault = parsed.defaultModel;
+      const defaultFromBackend = models.find(
+        (model) => model.value === backendDefault
+      )?.value;
+      setSelectedModel(defaultFromBackend || models[0].value);
+    } catch (error) {
+      console.warn("Failed to load model options", error);
+    }
+  }, []);
+
   const handleCreateConversation = React.useCallback(() => {
     setChatArray(buildDefaultMessages());
     setActiveConversationId(null);
@@ -196,6 +214,10 @@ function MainPage() {
   }, [initializeConversations]);
 
   React.useEffect(() => {
+    fetchModelOptions();
+  }, [fetchModelOptions]);
+
+  React.useEffect(() => {
     if (messagesRef.current) {
       try {
         messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
@@ -210,6 +232,16 @@ function MainPage() {
       inputRef.current.focus();
     }
   }, [writing, loadingAnswer]);
+
+  React.useEffect(() => {
+    if (!modelOptions.length) return;
+    const hasSelected = modelOptions.some(
+      (model) => model.value === selectedModel
+    );
+    if (!hasSelected) {
+      setSelectedModel(modelOptions[0].value);
+    }
+  }, [modelOptions, selectedModel]);
 
   const handleSelectConversation = (conversationId) => {
     if (sidebarBusy) return;
@@ -341,9 +373,14 @@ function MainPage() {
       setTypewriterIndex(updatedConversation.length - 1);
     } catch (error) {
       console.error("Failed to send message", error);
+      const backendMessage =
+        error?.response?.data && typeof error.response.data === "string"
+          ? error.response.data
+          : error?.message || "Fehler beim Abrufen der Antwort.";
+      showSnackbar(backendMessage);
       setChatArray((arr) => [
         ...arr,
-        { from: "gpt", message: "Fehler beim Abrufen der Antwort.", error: true },
+        { from: "gpt", message: backendMessage, error: true },
       ]);
     } finally {
       setLoadingAnswer(false);
@@ -433,7 +470,7 @@ function MainPage() {
               ".MuiSvgIcon-root": { color: "#fff" },
             }}
           >
-            {MODEL_OPTIONS.map((opt) => (
+            {modelOptions.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
                 <Box>
                   <Typography sx={{ ...fontMain, fontSize: 13, fontWeight: 600 }}>

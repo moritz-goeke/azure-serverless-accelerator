@@ -61,8 +61,8 @@ GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web
 ### Chat Configuration
 
 - Front end defaults to `selectedModel = "gpt5mini"` (`src/pages/MainPage.jsx`).
-- Backend reads `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT` (set by Bicep) and uses Microsoft Entra tokens instead of API keys.
-- To experiment locally, define these settings in `backend/local.settings.json` or a `.env` file:
+- Backend reads `AZURE_OPENAI_ENDPOINT` and deployment variables from `backend/src/functions/openai.js` and uses Microsoft Entra tokens instead of API keys.
+- To experiment locally with multiple models, define these settings in `backend/local.settings.json` or a `.env` file:
 
 ```json
 {
@@ -71,12 +71,24 @@ GitHub Actions (OIDC) ─────► Deploys IaC + app artifacts (Static Web
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "AZURE_OPENAI_ENDPOINT": "https://<your-aoai-name>.openai.azure.com/",
-    "AZURE_OPENAI_DEPLOYMENT": "gpt5mini"
+    "AZURE_OPENAI_DEPLOYMENT": "gpt5mini",
+    "AZURE_OPENAI_DEPLOYMENT_2": "gpt4o",
+    "AZURE_OPENAI_DEPLOYMENT_3": "gpt41",
+    "AZURE_OPENAI_DEPLOYMENT_4": "gpt41mini",
+    "AZURE_OPENAI_DEPLOYMENT_5": "o3mini"
   }
 }
 ```
 
-> The deployment name is what Azure OpenAI expects in the `model` field for chat completions. Keep it in sync with the actual deployment name defined in Bicep or the Azure portal.
+Model key mapping (frontend value -> backend env var):
+
+- `gpt5mini` -> `AZURE_OPENAI_DEPLOYMENT`
+- `gpt4o` -> `AZURE_OPENAI_DEPLOYMENT_2`
+- `gpt41` -> `AZURE_OPENAI_DEPLOYMENT_3`
+- `gpt41mini` -> `AZURE_OPENAI_DEPLOYMENT_4`
+- `o3mini` -> `AZURE_OPENAI_DEPLOYMENT_5`
+
+> The deployment name is what Azure OpenAI expects in the `model` field for chat completions. Keep every value in sync with the actual deployment names in Azure OpenAI.
 
 ## Repository Structure
 
