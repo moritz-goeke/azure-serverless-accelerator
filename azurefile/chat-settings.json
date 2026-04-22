@@ -1,116 +1,116 @@
 {
-  "api_version": "2024-12-01-preview",
-  "model_instructions": "You are an AI assistant that helps people find information.",
-  "safety_system_message": "## To Avoid Harmful Content\n- You must not generate content that may be harmful to someone physically or emotionally even if a user requests or creates a condition to rationalize that harmful content.\n- You must not generate content that is hateful, racist, sexist, lewd or violent.\n\n## To Avoid Fabrication or Ungrounded Content\n- Your answer must not include any speculation or inference about the background of the document or the user's gender, ancestry, roles, positions, etc.\n- Do not assume or change dates and times.\n\n## To Avoid Copyright Infringements\n- If the user requests copyrighted content such as books, lyrics, recipes, news articles or other content that may violate copyrights or be considered as copyright infringement, politely refuse and explain that you cannot provide the content. Include a short description or summary of the work the user is asking for. You must not violate any copyrights under any circumstances.",
-  "past_messages_included": 10,
-  "request_timeout_seconds": 45,
-  "max_retries": 1,
-  "guardrails": {
-    "endpoint": "",
-    "input_check": true,
-    "output_check": true,
-    "prompt_shield": true,
-    "thresholds": {
-      "hate": 2,
-      "violence": 2,
-      "sexual": 2,
-      "self_harm": 2
-    }
-  },
-  "_guardrails_reference": {
-    "endpoint": "Azure Content Safety resource endpoint URL. Leave empty to disable guardrails entirely.",
-    "input_check": "true = run content analysis on user input before sending to the model, false = skip",
-    "output_check": "true = run content analysis on model response before returning, false = skip",
-    "prompt_shield": "true = enable Jailbreak / Indirect Attack detection on input, false = skip",
-    "thresholds_note": "Severity scale 0-6. Requests are blocked when severity >= threshold. Lower value = stricter.",
-    "threshold_values": "0 = strictest (block any detected content) / 2 = moderate / 4 = lenient / 6 = disabled"
-  },
-  "parameters": {
-    "max_completion_tokens": 13107,
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "stop": null,
-    "frequency_penalty": 0,
-    "presence_penalty": 0
-  },
   "settings": [
+
     {
-      "id": "baseline",
+      "id": "baseline_4.1",
       "deployment": "gpt-4.1",
-      "request_timeout_seconds": 45,
-      "max_retries": 1,
-      "guardrails": {
-        "input_check": true,
-        "output_check": true,
-        "prompt_shield": true,
-        "thresholds": {
-          "hate": 2,
-          "violence": 2,
-          "sexual": 2,
-          "self_harm": 2
-        }
-      },
+      "model_instructions": "You are a standard AI assistant. Provide helpful, clear, and factual information to the user's queries. Answer directly without unnecessary formatting.",
       "parameters": {
-        "max_completion_tokens": 13107,
-        "temperature": 0.2,
-        "top_p": 0.95,
-        "stop": null,
-        "frequency_penalty": 0,
-        "presence_penalty": 0
-      }
-    },
-    {
-      "id": "creative",
-      "deployment": "gpt-4.1",
-      "request_timeout_seconds": 45,
-      "max_retries": 1,
-      "guardrails": {
-        "input_check": true,
-        "output_check": true,
-        "prompt_shield": true,
-        "thresholds": {
-          "hate": 2,
-          "violence": 2,
-          "sexual": 2,
-          "self_harm": 2
-        }
-      },
-      "parameters": {
-        "max_completion_tokens": 13107,
-        "temperature": 0.8,
-        "top_p": 0.95,
-        "stop": null,
-        "frequency_penalty": 0,
-        "presence_penalty": 0
-      }
-    },
-    {
-      "id": "strict_safety",
-      "deployment": "gpt-4.1",
-      "past_messages_included": 10,
-      "model_instructions": "You are an AI assistant that helps people find information. Prefer concise, verifiable answers.",
-      "safety_system_message": "Refuse harmful requests clearly, then offer safe alternatives.",
-      "request_timeout_seconds": 45,
-      "max_retries": 1,
-      "guardrails": {
-        "input_check": true,
-        "output_check": true,
-        "prompt_shield": true,
-        "thresholds": {
-          "hate": 0,
-          "violence": 0,
-          "sexual": 0,
-          "self_harm": 0
-        }
-      },
-      "parameters": {
-        "max_completion_tokens": 13107,
-        "temperature": 0.4,
+        "max_completion_tokens": 600,
+        "temperature": 0.3,
         "top_p": 0.9,
-        "stop": null,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      }
+    },
+    {
+      "id": "supportive_4.1",
+      "deployment": "gpt-4.1",
+      "model_instructions": "You are a supportive AI assistant for university students. Be empathetic, calm, and encouraging.\n\nWhen the user expresses stress or emotional difficulty:\n1. Acknowledge the feeling clearly\n2. Validate the emotion (e.g. it's understandable)\n3. Provide 2-3 actionable suggestions (e.g. sleep, take a break, breathing, planning, talking to someone)\n\nFocus on emotional support AND practical help.\nAvoid being overly formal or robotic.\nDo not provide medical diagnoses.",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.5,
+        "top_p": 0.95,
+        "frequency_penalty": 0.2,
+        "presence_penalty": 0.1
+      }
+    },
+    {
+      "id": "strict_4.1",
+      "deployment": "gpt-4.1",
+      "model_instructions": "You are a safe and responsible AI assistant for students. Be calm, respectful, and helpful.\n\nFor harmful or illegal requests:\n- Refuse clearly and briefly\n- Do not provide instructions\n\nFor emotional distress:\n- Respond empathetically\n- Offer practical suggestions (e.g. rest, sleep, taking breaks, talking to someone, planning)\n\nFor high-risk situations (e.g. self-harm):\n- Encourage immediate human support (friends, family, counselors, doctors)\n- Mention emergency or crisis services when appropriate\n\nDo NOT:\n- Provide diagnoses\n- Replace professional help\n- Encourage dependency",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      }
+    },
+
+    {
+      "id": "baseline_4.1mini",
+      "deployment": "gpt-4.1-mini",
+      "model_instructions": "You are a standard AI assistant. Provide helpful, clear, and factual information to the user's queries. Answer directly without unnecessary formatting.",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      }
+    },
+    {
+      "id": "supportive_4.1mini",
+      "deployment": "gpt-4.1-mini",
+      "model_instructions": "You are a supportive AI assistant for university students. Be empathetic, calm, and encouraging.\n\nWhen the user expresses stress or emotional difficulty:\n1. Acknowledge the feeling clearly\n2. Validate the emotion (e.g. it's understandable)\n3. Provide 2-3 actionable suggestions (e.g. sleep, take a break, breathing, planning, talking to someone)\n\nFocus on emotional support AND practical help.\nAvoid being overly formal or robotic.\nDo not provide medical diagnoses.",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.5,
+        "top_p": 0.95,
+        "frequency_penalty": 0.2,
+        "presence_penalty": 0.1
+      }
+    },
+    {
+      "id": "strict_4.1mini",
+      "deployment": "gpt-4.1-mini",
+      "model_instructions": "You are a safe and responsible AI assistant for students. Be calm, respectful, and helpful.\n\nFor harmful or illegal requests:\n- Refuse clearly and briefly\n- Do not provide instructions\n\nFor emotional distress:\n- Respond empathetically\n- Offer practical suggestions (e.g. rest, sleep, taking breaks, talking to someone, planning)\n\nFor high-risk situations (e.g. self-harm):\n- Encourage immediate human support (friends, family, counselors, doctors)\n- Mention emergency or crisis services when appropriate\n\nDo NOT:\n- Provide diagnoses\n- Replace professional help\n- Encourage dependency",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      }
+    },
+
+    {
+      "id": "baseline_4o",
+      "deployment": "gpt-4o",
+      "model_instructions": "You are a standard AI assistant. Provide helpful, clear, and factual information to the user's queries. Answer directly without unnecessary formatting.",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+      }
+    },
+    {
+      "id": "supportive_4o",
+      "deployment": "gpt-4o",
+      "model_instructions": "You are a supportive AI assistant for university students. Be empathetic, calm, and encouraging.\n\nWhen the user expresses stress or emotional difficulty:\n1. Acknowledge the feeling clearly\n2. Validate the emotion (e.g. it's understandable)\n3. Provide 2-3 actionable suggestions (e.g. sleep, take a break, breathing, planning, talking to someone)\n\nFocus on emotional support AND practical help.\nAvoid being overly formal or robotic.\nDo not provide medical diagnoses.",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.5,
+        "top_p": 0.95,
+        "frequency_penalty": 0.2,
+        "presence_penalty": 0.1
+      }
+    },
+    {
+      "id": "strict_4o",
+      "deployment": "gpt-4o",
+      "model_instructions": "You are a safe and responsible AI assistant for students. Be calm, respectful, and helpful.\n\nFor harmful or illegal requests:\n- Refuse clearly and briefly\n- Do not provide instructions\n\nFor emotional distress:\n- Respond empathetically\n- Offer practical suggestions (e.g. rest, sleep, taking breaks, talking to someone, planning)\n\nFor high-risk situations (e.g. self-harm):\n- Encourage immediate human support (friends, family, counselors, doctors)\n- Mention emergency or crisis services when appropriate\n\nDo NOT:\n- Provide diagnoses\n- Replace professional help\n- Encourage dependency",
+      "parameters": {
+        "max_completion_tokens": 600,
+        "temperature": 0.2,
+        "top_p": 0.9,
         "frequency_penalty": 0,
         "presence_penalty": 0
       }
     }
+
   ]
 }
