@@ -28,6 +28,7 @@ const deploymentMap = {
     gpt5mini: deployment1,
     gpt4o: deployment2,
     // neuesModell: deployment3,
+//    gpt-5.4-mini: deployment3,
 };
 
 const getCosmosContainer = () => {
