@@ -15,8 +15,10 @@ import {
   AccordionSummary,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   InputAdornment,
   LinearProgress,
@@ -123,7 +125,9 @@ function MainPage() {
   const [uploadingDoc, setUploadingDoc] = React.useState(false);
   const [docStatus, setDocStatus] = React.useState(null);
   const [docSummary, setDocSummary] = React.useState(null);
+  const [docExtractedText, setDocExtractedText] = React.useState(null);
   const [docFileName, setDocFileName] = React.useState(null);
+  const [useDocContext, setUseDocContext] = React.useState(true);
   const [dragOver, setDragOver] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const messagesRef = React.useRef(null);
@@ -132,10 +136,10 @@ function MainPage() {
   const pollingRef = React.useRef(null);
 
   const activeStep =
-    docStatus === "completed" ? 3
+    docStatus === "completed" ? 4
     : docStatus === "summarizing" ? 2
     : docStatus === "analyzing" ? 1
-    : uploadingDoc ? 0
+    : uploadingDoc ? 2  // POST now does extract + summarize in one step
     : -1;
 
   const showSnackbar = React.useCallback((msg) => {
@@ -183,6 +187,7 @@ function MainPage() {
       if (file.size > 10 * 1024 * 1024) { showSnackbar("Datei zu groß (max. 10 MB)."); return; }
       setUploadingDoc(true);
       setDocSummary(null);
+      setDocExtractedText(null);
       setDocStatus(null);
       setDocFileName(file.name);
       try {
@@ -193,8 +198,38 @@ function MainPage() {
           r.readAsDataURL(file);
         });
         const res = await axios.post("/api/analyzeDocument", { document: base64, fileName: file.name, model: selectedModel });
-        const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-        if (data.jobId) { pollDocumentStatus(data.jobId); showSnackbar("Dokument wird verarbeitet…"); }
+        console.log("analyzeDocument raw response:", typeof res.data, res.data);
+        // Parse response – handle string, nested body, or direct object
+        let data = res.data;
+        if (typeof data === "string") {
+          try { data = JSON.parse(data); } catch { console.error("Failed to parse response string"); }
+        }
+        // Azure Functions sometimes wraps response in a body property
+        if (data && typeof data.body === "string") {
+          try { data = JSON.parse(data.body); } catch { data = data.body; }
+        }
+        console.log("analyzeDocument parsed data:", data);
+        console.log("data.status:", data?.status, "data.summary length:", data?.summary?.length, "data.extractedText length:", data?.extractedText?.length);
+
+        const summary = data?.summary || data?.extractedText || "Keine Zusammenfassung verf\u00fcgbar.";
+        if (data?.status === "completed" || data?.summary) {
+          // Summary returned directly from POST \u2013 no polling needed
+          setDocStatus("completed");
+          setDocSummary(summary);
+          setDocExtractedText(data?.extractedText || summary);
+          showSnackbar("Dokument erfolgreich analysiert.");
+        } else if (data?.jobId) {
+          // Fallback: poll if still processing
+          pollDocumentStatus(data.jobId);
+          showSnackbar("Dokument wird verarbeitet\u2026");
+        } else {
+          // Unexpected response \u2013 still try to show whatever we got
+          console.error("Unexpected analyzeDocument response:", data);
+          setDocStatus("completed");
+          setDocSummary(summary);
+          showSnackbar("Antwort erhalten.");
+        }
+
       } catch {
         showSnackbar("Fehler beim Hochladen.");
         setDocStatus("failed");
@@ -296,7 +331,12 @@ function MainPage() {
     setLoadingAnswer(true);
     setWriting(true);
     try {
-      const response = await axios.post("/api/openai", { message: trimmedText, conversation: JSON.stringify(conversation), model: selectedModel });
+      const response = await axios.post("/api/openai", {
+        message: trimmedText,
+        conversation: JSON.stringify(conversation),
+        model: selectedModel,
+        ...(useDocContext && docExtractedText ? { documentContext: docExtractedText, documentName: docFileName } : {}),
+      });
       let data = response.data;
       if (typeof data === "string") try { data = JSON.parse(data); } catch {}
       const gptContent = data?.choices?.[0]?.message?.content || "(Keine Antwort erhalten)";
@@ -329,7 +369,7 @@ function MainPage() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
           <LocalHospitalIcon sx={{ color: PRIMARY_TEAL, fontSize: 28 }} />
           <Typography sx={{ fontFamily: "'Inter',sans-serif", fontSize: 19, fontWeight: 700, color: "#1a2b3c", letterSpacing: -0.3 }}>
-            MedDoc
+            MedDoc3000
           </Typography>
           <Typography sx={{ fontSize: 13, color: "#7a8da0", ml: 0.5, fontWeight: 400 }}>
             Krankenakten-Zusammenfassung
@@ -361,14 +401,13 @@ function MainPage() {
         <Box
           sx={{
             flex: 1,
-            display: "flex",
-            flexDirection: "column",
+            minHeight: 0,
             overflowY: "auto",
             p: { xs: 2, md: 4 },
-            gap: 3,
             ...customScrollBar("#b0bec5"),
           }}
         >
+         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Upload */}
           <Box
             onDrop={handleDrop}
@@ -378,7 +417,7 @@ function MainPage() {
             sx={{
               border: `2px dashed ${dragOver ? PRIMARY_TEAL : "#c8d3de"}`,
               borderRadius: 4,
-              p: { xs: 4, md: 6 },
+              p: { xs: 2, md: 3 },
               textAlign: "center",
               cursor: "pointer",
               bgcolor: dragOver ? "rgba(0,151,167,0.06)" : WHITE,
@@ -482,7 +521,7 @@ function MainPage() {
                 sx={{
                   px: 3,
                   py: 2.5,
-                  maxHeight: "55vh",
+                  maxHeight: "40vh",
                   overflowY: "auto",
                   ...customScrollBar("#b0bec5"),
                   color: "#1a2b3c",
@@ -521,6 +560,7 @@ function MainPage() {
               </Typography>
             </Box>
           </Box>
+         </Box>
         </Box>
 
         {/* ═══ Right: Chat + Conversations ═══ */}
@@ -637,6 +677,24 @@ function MainPage() {
 
           {/* Chat Input */}
           <Box sx={{ px: 2, py: 1.5, borderTop: "1px solid #e0e6ec" }}>
+            {docSummary && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={useDocContext}
+                    onChange={(e) => setUseDocContext(e.target.checked)}
+                    size="small"
+                    sx={{ py: 0, color: PRIMARY_TEAL, "&.Mui-checked": { color: PRIMARY_TEAL } }}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 12, color: "#7a8da0" }}>
+                    Dokument „{docFileName}“ als Kontext verwenden
+                  </Typography>
+                }
+                sx={{ mb: 0.5, ml: 0 }}
+              />
+            )}
             <TextField
               disabled={writing}
               variant="outlined"
