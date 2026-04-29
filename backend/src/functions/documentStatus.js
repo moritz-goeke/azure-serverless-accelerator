@@ -10,20 +10,6 @@ const cosmosDbName = process.env["COSMOS_DATABASE_NAME"] || "appdb";
 const cosmosContainerName = process.env["COSMOS_CONTAINER_NAME"] || "items";
 const credential = new DefaultAzureCredential();
 
-<<<<<<< HEAD
-const JOBS_CONTAINER = "DocumentJobs";
-const MAX_LLM_INPUT_CHARS = 30_000; // truncate extracted text sent to LLM to fit context window
-
-// >>> NEUES MODELL HINZUFÜGEN? Key muss zum "value" im Frontend (MODELS-Array) passen. <<<
-const deploymentMap = {
-    gpt5mini: deployment1,
-    gpt4o: deployment2,
-    // neuesModell: deployment3,
-//    gpt-5.4-mini: deployment3,
-};
-
-=======
->>>>>>> b25d44ec97a5e614c53f70cb18a4683840f2bbf0
 const getCosmosContainer = () => {
     const client = new CosmosClient({ endpoint: cosmosEndpoint, aadCredentials: credential });
     return client.database(cosmosDbName).container(cosmosContainerName);
