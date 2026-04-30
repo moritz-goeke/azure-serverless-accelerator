@@ -102,7 +102,7 @@ app.http("openai", {
           # Details
           Die Aufgabe besteht darin, die medizinischen und personenspezifischen Informationen aus der Patientenakte eines gewählten Patienten zusammenzufassen. Der Schwerpunkt liegt auf den wichtigsten Informationen, wie Anamnese, Diagnosen, Behandlungsverlauf, aktuellen medizinischen Zustand und Empfehlungen. 
           Falls ein Name des Patienten mehrfach vorkommt, frage nach, welcher Patient gemeint ist (“Welcher Patient ist gemeint, [Name] geboren am [Geburtsdatum] oder [Geburtsdatum zweiter Patient]?”)
-          **Hinweise:**  
+          **Hinweise:***  
           - Die Zusammenfassung sollte nur relevante Fakten enthalten und überflüssige Details weglassen.  
           - Fachbegriffe sollten verwendet werden, aber wenn möglich auch kurz erklärt werden, falls sie nicht eindeutig sind.  
           - Die Daten müssen strukturiert und leicht verständlich sein.  
