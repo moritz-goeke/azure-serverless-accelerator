@@ -73,6 +73,20 @@ param openAiModelVersion2 string = '2024-11-20'
 @maxValue(20)
 param openAiDeploymentCapacity2 int = 1
 
+@description('Name assigned to the third Azure OpenAI deployment.')
+param openAiDeploymentName3 string = 'gpt54mini'
+
+@description('Model name configured in the third Azure OpenAI deployment.')
+param openAiModelName3 string = 'gpt-5.4-mini'
+
+@description('Model version configured in the third Azure OpenAI deployment.')
+param openAiModelVersion3 string = '2025-08-07'
+
+@description('Capacity allocated to the third Azure OpenAI deployment.')
+@minValue(1)
+@maxValue(20)
+param openAiDeploymentCapacity3 int = 1
+
 @description('Azure region for the Document Intelligence resource.')
 param docIntelligenceLocation string = 'westeurope'
 
@@ -193,6 +207,26 @@ resource aiModelDeployment2 'Microsoft.CognitiveServices/accounts/deployments@20
   }
   dependsOn: [
     aiModelDeployment
+  ]
+}
+
+resource aiModelDeployment3 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  name: openAiDeploymentName3
+  parent: aiServicesAccount
+  sku: {
+    name: 'GlobalStandard'
+    capacity: openAiDeploymentCapacity3
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: openAiModelName3
+      version: openAiModelVersion3
+    }
+    raiPolicyName: 'Microsoft.Default'
+  }
+  dependsOn: [
+    aiModelDeployment2
   ]
 }
 
@@ -456,6 +490,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'AZURE_OPENAI_MODEL_2'
           value: openAiModelName2
+        }
+        {
+          name: 'AZURE_OPENAI_DEPLOYMENT_3'
+          value: openAiDeploymentName3
+        }
+        {
+          name: 'AZURE_OPENAI_MODEL_3'
+          value: openAiModelName3
         }
         {
           name: 'DOCUMENT_INTELLIGENCE_ENDPOINT'

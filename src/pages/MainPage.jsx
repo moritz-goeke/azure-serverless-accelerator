@@ -62,6 +62,7 @@ const DEFAULT_ASSISTANT_MESSAGE =
 const MODELS = [
   { value: "gpt5mini", label: "GPT-5 Mini – schnell" },
   { value: "gpt4o", label: "GPT-4o – präzise" },
+  { value: "gpt54mini", label: "GPT-5.4 Mini – ausgewogen" },
   // { value: "neuesModell", label: "Neues Modell – Beschreibung" },
 ];
 

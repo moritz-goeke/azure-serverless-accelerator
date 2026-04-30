@@ -19,6 +19,7 @@ const openAiEndpoint = process.env["AZURE_OPENAI_ENDPOINT"];
 // =====================================================================
 const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"];
 const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"];
+const deployment3 = process.env["AZURE_OPENAI_DEPLOYMENT_3"];
 const credential = new DefaultAzureCredential();
 
 const JOBS_CONTAINER = "DocumentJobs";
@@ -29,7 +30,7 @@ const MAX_LLM_INPUT_CHARS = 30_000; // truncate extracted text sent to LLM to fi
 const deploymentMap = {
     gpt5mini: deployment1,
     gpt4o: deployment2,
-    // neuesModell: deployment3,
+    gpt54mini: deployment3,
 };
 
 const getCosmosContainer = () => {

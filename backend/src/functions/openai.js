@@ -14,6 +14,7 @@ const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
 // =====================================================================
 const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"] || "gpt5mini";
 const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"] || "gpt4o";
+const deployment3 = process.env["AZURE_OPENAI_DEPLOYMENT_3"] || "gpt54mini"; // Beispiel für neues Modell
 const apiVersion = "2024-10-01-preview";
 const credential = new DefaultAzureCredential();
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
@@ -22,6 +23,7 @@ const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
 const deploymentMap = {
   gpt5mini: deployment1,
   gpt4o: deployment2,
+  gpt54mini: deployment3,
   // neuesModell: deployment3,
 };
 
