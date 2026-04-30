@@ -74,13 +74,13 @@ param openAiModelVersion2 string = '2024-11-20'
 param openAiDeploymentCapacity2 int = 1
 
 @description('Name assigned to the third Azure OpenAI deployment.')
-param openAiDeploymentName3 string = 'gpt54mini'
+param openAiDeploymentName3 string = 'gpt-5.4-mini'
 
 @description('Model name configured in the third Azure OpenAI deployment.')
 param openAiModelName3 string = 'gpt-5.4-mini'
 
 @description('Model version configured in the third Azure OpenAI deployment.')
-param openAiModelVersion3 string = '2025-08-07'
+param openAiModelVersion3 string = '2026-03-17'
 
 @description('Capacity allocated to the third Azure OpenAI deployment.')
 @minValue(1)

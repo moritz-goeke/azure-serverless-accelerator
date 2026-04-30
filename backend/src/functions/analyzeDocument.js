@@ -19,7 +19,7 @@ const openAiEndpoint = process.env["AZURE_OPENAI_ENDPOINT"];
 // =====================================================================
 const deployment1 = process.env["AZURE_OPENAI_DEPLOYMENT"];
 const deployment2 = process.env["AZURE_OPENAI_DEPLOYMENT_2"];
-const deployment3 = process.env["AZURE_OPENAI_DEPLOYMENT_3"];
+const deployment3 = process.env["AZURE_OPENAI_DEPLOYMENT_3"] || "gpt-5.4-mini";
 const credential = new DefaultAzureCredential();
 
 const JOBS_CONTAINER = "DocumentJobs";
@@ -39,7 +39,7 @@ const getCosmosContainer = () => {
 };
 
 const cognitiveServicesScope = "https://cognitiveservices.azure.com/.default";
-const apiVersion = "2024-10-01-preview";
+const apiVersion = "2024-12-01-preview";
 
 const getAzureAdToken = async () => {
     const { token } = await credential.getToken(cognitiveServicesScope);
