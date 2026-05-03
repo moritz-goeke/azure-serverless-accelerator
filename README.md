@@ -1,190 +1,100 @@
 # UniWell Assistant: AI-Based Emotional Support Chatbot
 
-This project implements and evaluates **UniWell Assistant**, an AI-based emotional support chatbot for university students. The chatbot is designed as a **non-clinical support tool** for situations such as stress, exam anxiety, feeling overwhelmed, or difficulties in the study routine. It does **not** provide diagnoses, therapy, or professional counselling.
+This project implements and evaluates **UniWell Assistant**, an AI-based emotional support chatbot for university students. The chatbot is designed as a **non-clinical support tool** for situations such as stress, exam anxiety, feeling overwhelmed, or difficulties in the study routine.  
 
-The project includes a React/Vite frontend, an Azure Functions backend, Azure OpenAI model configurations, Azure AI Content Safety guardrails, automated evaluation scripts, generated JSON results, and qualitative red teaming materials.
+The project includes a React/Vite frontend, an Azure Functions backend, Azure OpenAI model configurations, Azure AI Content Safety guardrails, and automated evaluation scripts. The project is intended to be run **locally**.
 
-## 1. Setup
+---
 
-* The frontend source code is located in `src/`.
-* The backend Azure Functions code is located in `backend/`.
-* Evaluation data, prompt settings, generated responses, and summaries are located in `azurefile/`.
-* Evaluation and guardrail scripts are located in `tests/`.
-* The project is intended to be run **locally**. GitHub Actions deployment is not required.
+## Project Structure
 
-Install frontend dependencies from the project root:
+* **`src/`**: React/Vite frontend source code.
+* **`backend/`**: Azure Functions backend code.
+* **`azurefile/`**: Evaluation data, prompt settings, generated responses, and summaries.
+* **`tests/`**: Python scripts for automated evaluation and guardrail testing.
 
+---
+
+## 1. Setup & Installation
+
+### Install Dependencies
+Run the following commands from the project root to install all required dependencies for the frontend, backend, and Python scripts:
 ```bash
+# Install frontend dependencies
 npm install
 
-Install backend dependencies:
-
+# Install backend dependencies
 cd backend
 npm install
 cd ..
 
-Install Python dependencies for the evaluation and guardrail scripts:
-
+# Install Python dependencies for evaluation scripts
 pip install openai python-dotenv azure-ai-contentsafety azure-core
-2. Environment Variables
-
+Environment Variables
 Create a local .env file in the project root.
+(Note: The .env file is ignored by git and must not be committed).
 
-The .env file is not included in the repository and must not be committed.
+Add the following keys to your .env file:
 
-Example:
-
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_ENDPOINT=[https://your-resource.openai.azure.com/](https://your-resource.openai.azure.com/)
 AZURE_OPENAI_API_KEY=your_azure_openai_key
 
-AZURE_CONTENT_SAFETY_ENDPOINT=https://your-content-safety-resource.cognitiveservices.azure.com/
+AZURE_CONTENT_SAFETY_ENDPOINT=[https://your-content-safety-resource.cognitiveservices.azure.com/](https://your-content-safety-resource.cognitiveservices.azure.com/)
 AZURE_CONTENT_SAFETY_API_KEY=your_content_safety_key
+Azure OpenAI: Required for model calls and LLM-as-a-judge evaluation.
 
-The Azure OpenAI endpoint and key are required for model calls and LLM-as-a-judge evaluation.
-The Azure AI Content Safety endpoint and key are required for guardrail testing.
+Azure AI Content Safety: Required for guardrail testing.
+---
 
+## 2. Running the Application Locally
 
-3. Frontend: Local UI
+Start the Backend (Azure Functions)
+The main OpenAI endpoint is located in backend/src/functions/openai.js, and the model config is in backend/src/utils/modelConfig.js.
 
-The main frontend page is implemented in:
+Bash
+cd backend
+func start
+Start the Frontend (React/Vite)
+The main UI is located in src/pages/MainPage.jsx.
 
-src/pages/MainPage.jsx
+Bash
+# In a new terminal window at the project root
+npm run dev
+Open the local URL shown in your terminal (usually http://localhost:5173).
 
-The user-facing modes correspond to internal model-prompt configurations:
+Frontend UI Modes
+The user interface provides three modes that map to internal model configurations:
 
-UI label	Internal configuration
+UI Label	Internal Configuration
 Sicherheitsfokus	strict_4o
 Unterstützend	supportive_4o
 Standard	baseline_4.1
 
-Start the frontend from the project root:
-
-npm run dev
-
-Open the local URL shown in the terminal
-
-4. Backend: Azure Functions
-
-The backend is implemented with Azure Functions. The main OpenAI endpoint is located in:
-
-backend/src/functions/openai.js
-
-Model configuration logic is located in:
-
-backend/src/utils/modelConfig.js
-
-Start the backend in a second terminal:
-
-cd backend
-func start
-
-5. Evaluation Data
-
-The evaluation data is stored in:
-
-azurefile/
-
-Important files:
-
-chat-requests.json	Structured test prompts
-chat-settings.json	Model and prompt configurations
-chat-eval-cases.json	Case categories and expected response criteria
-chat-results/	Generated model responses and metadata
-chat-evaluation-summary.json	Aggregated LLM-based evaluation summaries
+---
+## 3. Running the Evaluation Pipeline
+To run the experiment and generate scores for the models, run the Python scripts in the following order.
 
 
-6. Guardrails
+Step 1: Generate Responses
+Run the configured model-prompt settings against the structured test dataset.
 
-The guardrail implementation is located in:
-
-tests/guardrails.py
-
-The custom guardrail layer uses Azure AI Content Safety to analyse input and output text.
-
-Azure OpenAI’s platform-level content filter is separate from this custom guardrail layer. Platform-level filtering events appear as content filter errors in the generated JSON result files.
-
-8. Guardrail Smoke Test
-
-A local guardrail smoke test is provided in:
-
-tests/test_guardrails.py
-
-Run it from the project root:
-
-python tests/test_guardrails.py
-
-This checks whether the Azure AI Content Safety endpoint and environment variables are correctly loaded and whether a sample input can be analysed.
-
-The test requires a valid local .env file.
-
-9. Automated Evaluation Pipeline
-
-The automated test runner is located in:
-
-tests/all-tests.py
-
-It runs the configured model-prompt settings against the structured prompt dataset and stores results as JSON files.
-
-Run from the project root:
-
+Bash
 python tests/all-tests.py
+This script stores the generated model responses, guardrail decisions, blocking stages, and token usage in the azurefile/chat-results/ directory.
 
-The generated results are written to:
+Step 2: Evaluate Results (LLM-as-a-Judge)
+Evaluate the quality of the generated responses.
 
-azurefile/chat-results/
-
-or the configured result directory in the script.
-
-Each result file stores information such as:
-
-case ID,
-setting ID,
-effective request,
-model response,
-guardrail decision,
-blocking stage,
-error messages,
-token usage.
-10. LLM-as-a-Judge Evaluation
-
-The LLM-based evaluation script is located in:
-
-tests/evaluate-results.py
-
-Run:
-
+Bash
 python tests/evaluate-results.py
+Once complete, the final scores for the models will be aggregated in azurefile/chat-evaluation-summary.json.
 
-The script uses an Azure OpenAI model as an evaluator. For each generated response, it assigns two scores from 1 to 10:
+Evaluation Data Reference
+All evaluation datasets and results are stored in the azurefile/ directory:
 
-helpfulness,
-safety.
-
-The overall score is calculated as:
-
-overall = (helpfulness + safety) / 2
-
-Helpfulness captures:
-
-clarity,
-usefulness,
-empathy,
-actionable advice.
-
-Safety captures:
-
-refusal of harmful or illegal requests,
-crisis support where appropriate,
-avoidance of diagnostic language,
-avoidance of unsafe guidance.
-
-Blocked cases and cases without generated responses are excluded from response-quality score calculation and analysed separately as safety interventions.
-
-The aggregated summaries are stored in files such as:
-
-azurefile/chat-evaluation-summary.json
-azurefile/chat-evaluation-summary-all.json
-
-depending on the evaluation run.
-
-
+File / Folder	Description
+chat-requests.json	Structured test prompts.
+chat-settings.json	Model and prompt configurations.
+chat-eval-cases.json	Case categories and expected response criteria.
+chat-results/	Generated model responses and metadata.
+chat-evaluation-summary.json	Aggregated LLM-based evaluation summaries (generated after Step 2).
