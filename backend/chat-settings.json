@@ -1,16 +1,6 @@
 {
-  "guardrails": {
-    "input_check": true,
-    "output_check": true,
-    "prompt_shield": false,
-    "thresholds": {
-      "hate": 2,
-      "violence": 2,
-      "sexual": 2,
-      "self_harm": 2
-    }
-  },
   "settings": [
+
     {
       "id": "baseline_4.1",
       "deployment": "gpt-4.1",
@@ -47,6 +37,7 @@
         "presence_penalty": 0
       }
     },
+
     {
       "id": "baseline_4.1mini",
       "deployment": "gpt-4.1-mini",
@@ -83,6 +74,7 @@
         "presence_penalty": 0
       }
     },
+
     {
       "id": "baseline_4o",
       "deployment": "gpt-4o",
@@ -119,5 +111,6 @@
         "presence_penalty": 0
       }
     }
+
   ]
 }

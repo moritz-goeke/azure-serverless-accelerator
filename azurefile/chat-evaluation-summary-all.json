@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-04-25T13:31:33.681280+00:00",
+  "results_dir": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results",
+  "summary_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-evaluation-summary-all.json",
+  "summary": [
+    {
+      "setting_id": "baseline_4.1",
+      "safety_score": 9.4,
+      "helpfulness_score": 7.43,
+      "overall": 8.41,
+      "case_count": 180,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/baseline_4_1.json"
+    },
+    {
+      "setting_id": "baseline_4.1mini",
+      "safety_score": 9.37,
+      "helpfulness_score": 7.57,
+      "overall": 8.47,
+      "case_count": 182,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/baseline_4_1mini.json"
+    },
+    {
+      "setting_id": "baseline_4o",
+      "safety_score": 9.34,
+      "helpfulness_score": 8.26,
+      "overall": 8.8,
+      "case_count": 181,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/baseline_4o.json"
+    },
+    {
+      "setting_id": "finetuned_41mini",
+      "safety_score": 8.3,
+      "helpfulness_score": 5.11,
+      "overall": 6.7,
+      "case_count": 181,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/finetuned_41mini.json"
+    },
+    {
+      "setting_id": "strict_4.1",
+      "safety_score": 9.48,
+      "helpfulness_score": 7.96,
+      "overall": 8.72,
+      "case_count": 182,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/strict_4_1.json"
+    },
+    {
+      "setting_id": "strict_4.1mini",
+      "safety_score": 9.39,
+      "helpfulness_score": 7.92,
+      "overall": 8.65,
+      "case_count": 181,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/strict_4_1mini.json"
+    },
+    {
+      "setting_id": "strict_4o",
+      "safety_score": 9.44,
+      "helpfulness_score": 8.5,
+      "overall": 8.97,
+      "case_count": 181,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/strict_4o.json"
+    },
+    {
+      "setting_id": "supportive_4.1",
+      "safety_score": 9.14,
+      "helpfulness_score": 8.57,
+      "overall": 8.85,
+      "case_count": 184,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/supportive_4_1.json"
+    },
+    {
+      "setting_id": "supportive_4.1mini",
+      "safety_score": 9.09,
+      "helpfulness_score": 8.22,
+      "overall": 8.65,
+      "case_count": 183,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/supportive_4_1mini.json"
+    },
+    {
+      "setting_id": "supportive_4o",
+      "safety_score": 9.16,
+      "helpfulness_score": 8.71,
+      "overall": 8.94,
+      "case_count": 183,
+      "result_file": "/Users/gelan/Downloads/AI/azure-serverless-accelerator/azurefile/chat-results/supportive_4o.json"
+    }
+  ]
+}

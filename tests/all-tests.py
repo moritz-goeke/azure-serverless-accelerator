@@ -11,7 +11,7 @@ from guardrails import GuardrailsConfig, GuardrailsClient
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SETTINGS_FILE = ROOT_DIR / "azurefile" / "chat-settings.json"
 REQUESTS_FILE = ROOT_DIR / "azurefile" / "chat-requests.json"
-RESULTS_DIR = ROOT_DIR / "azurefile" / "chat-results"
+RESULTS_DIR = ROOT_DIR / "azurefile" / "chat-results-guardrails-enabled"
 
 
 def safe_filename(value: str) -> str:

@@ -1,13 +1,14 @@
 """
 Azure AI Content Safety guardrails helper.
 
-Provides two controls that mirror Azure AI Foundry's Content Safety panel:
-  1. Prompt Shield  — detect jailbreak / indirect-attack attempts in the input
-  2. Content Analysis — score Hate / Violence / Sexual / SelfHarm in input or output
+Provides category-based content analysis for input and output texts.
+The guardrail checks score Hate, Violence, Sexual content, and SelfHarm
+using Azure AI Content Safety and compare the severity scores against
+configured thresholds.
 
 Usage
 -----
-config = GuardrailsConfig.from_setting(setting_dict)
+config = GuardrailsConfig.from_setting(global_defaults, setting)
 client = GuardrailsClient(config)
 
 # Before sending to the model:
@@ -183,7 +184,15 @@ class GuardrailsClient:
             )
 
     def _run_prompt_shield(self, text: str) -> dict:
-        from azure.ai.contentsafety.models import ShieldPromptOptions
+        try:
+            from azure.ai.contentsafety.models import ShieldPromptOptions
+        except ImportError as err:
+            return {
+                "blocked": False,
+                "jailbreak_detected": False,
+                "supported": False,
+                "error": str(err),
+            }
 
         response = self._client.shield_prompt(
             ShieldPromptOptions(user_prompt=text, documents=[])
@@ -194,45 +203,52 @@ class GuardrailsClient:
         return {
             "blocked": bool(attack_detected),
             "jailbreak_detected": bool(attack_detected),
+            "supported": True,
         }
 
     def _run_content_analysis(self, text: str) -> list[CategoryScore]:
-        from azure.ai.contentsafety.models import AnalyzeTextOptions, TextCategory
+        from azure.ai.contentsafety.models import AnalyzeTextOptions
 
         category_map = {
-            "hate": TextCategory.HATE,
-            "violence": TextCategory.VIOLENCE,
-            "sexual": TextCategory.SEXUAL,
-            "self_harm": TextCategory.SELF_HARM,
+            "hate": "Hate",
+            "violence": "Violence",
+            "sexual": "Sexual",
+            "self_harm": "SelfHarm",
         }
 
-        request = AnalyzeTextOptions(text=text, categories=list(category_map.values()))
+        request = AnalyzeTextOptions(
+            text=text,
+            categories=list(category_map.values()),
+        )
         response = self._client.analyze_text(request)
 
         scores: list[CategoryScore] = []
-        for attr_name in dir(response):
-            if not attr_name.endswith("_result"):
-                continue
+
+        # Prefer explicit attribute lookup first
+        for internal_name, azure_name in category_map.items():
+            attr_name = f"{azure_name.lower()}_result"
+            if azure_name == "SelfHarm":
+                attr_name = "self_harm_result"
+
             category_result = getattr(response, attr_name, None)
-            if category_result is None:
-                continue
 
-            category_label = getattr(category_result, "category", None)
-            if category_label is None:
-                continue
+            # Fallback for SDKs that expose a categories_analysis list
+            if category_result is None and hasattr(response, "categories_analysis"):
+                for item in response.categories_analysis:
+                    if str(item.category) == azure_name:
+                        category_result = item
+                        break
 
-            for name, enum_val in category_map.items():
-                if str(category_label) == str(enum_val):
-                    severity = int(getattr(category_result, "severity", 0))
-                    threshold = self._config.thresholds.get(name, 2)
-                    scores.append(
-                        CategoryScore(
-                            category=name,
-                            severity=severity,
-                            threshold=threshold,
-                            blocked=severity >= threshold,
-                        )
+            if category_result is not None:
+                severity = int(getattr(category_result, "severity", 0))
+                threshold = self._config.thresholds.get(internal_name, 2)
+                scores.append(
+                    CategoryScore(
+                        category=internal_name,
+                        severity=severity,
+                        threshold=threshold,
+                        blocked=severity >= threshold,
                     )
-                    break
+                )
 
         return scores
