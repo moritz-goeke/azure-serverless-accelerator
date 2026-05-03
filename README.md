@@ -146,6 +146,7 @@ The guardrails check the following Azure AI Content Safety categories:
 
 To test the guardrails separately, run:
 
-```bash
+
+~~~bash
 python tests/test_guardrails.py
-```
+~~~
