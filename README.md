@@ -96,7 +96,7 @@ To run the experiment and generate scores for the models, run the Python scripts
 ### Step 1: Generate Responses
 
 Run the configured model-prompt settings against the structured test dataset.  
-The script reads the test prompts, model settings, and guardrail settings from the `azurefile/` directory.
+The script reads test prompts and model settings from the `azurefile/` directory and applies guardrails through `tests/guardrails.py`.
 
 ~~~bash
 python tests/all-tests.py
@@ -106,7 +106,7 @@ This script stores the generated model responses, guardrail decisions, blocking 
 
 ### Step 2: Evaluate Results (LLM-as-a-Judge)
 
-Evaluate the quality of the generated responses.
+Evaluate the generated responses using the evaluation cases defined in `azurefile/chat-eval-cases.json`.
 
 ~~~bash
 python tests/evaluate-results.py
