@@ -67,7 +67,7 @@ cd backend
 func start
 ~~~
 
-### Start the Frontend (React/Vite)
+### Start the Frontend
 
 The main UI is located in `src/pages/MainPage.jsx`.
 
@@ -76,11 +76,6 @@ The main UI is located in `src/pages/MainPage.jsx`.
 npm run dev
 ~~~
 
-Open the local URL shown in your terminal, usually:
-
-~~~text
-http://localhost:5173
-~~~
 
 ### Frontend UI Modes
 
