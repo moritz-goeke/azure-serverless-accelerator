@@ -124,3 +124,27 @@ All evaluation datasets and results are stored in the `azurefile/` directory:
 | `chat-eval-cases.json` | Case categories and expected response criteria. |
 | `chat-results/` | Generated model responses and metadata. |
 | `chat-evaluation-summary.json` | Aggregated LLM-based evaluation summaries generated after Step 2. |
+
+### Guardrail Test Files
+
+The `tests/` folder also contains two guardrail-related scripts:
+
+| File | Description |
+|---|---|
+| `tests/guardrails.py` | Helper module for Azure AI Content Safety guardrails. It checks user input and model output for unsafe content categories. |
+| `tests/test_guardrails.py` | Standalone script used to verify that the guardrails are configured and working correctly. |
+
+The guardrails check the following Azure AI Content Safety categories:
+
+| Category | Description |
+|---|---|
+| `hate` | Hate or discriminatory content. |
+| `violence` | Violent or threatening content. |
+| `sexual` | Sexual content. |
+| `self_harm` | Self-harm related content. |
+
+To test the guardrails separately, run:
+
+```bash
+python tests/test_guardrails.py
+```
