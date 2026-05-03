@@ -95,7 +95,8 @@ To run the experiment and generate scores for the models, run the Python scripts
 
 ### Step 1: Generate Responses
 
-Run the configured model-prompt settings against the structured test dataset.
+Run the configured model-prompt settings against the structured test dataset.  
+The script reads the test prompts, model settings, and guardrail settings from the `azurefile/` directory.
 
 ~~~bash
 python tests/all-tests.py
