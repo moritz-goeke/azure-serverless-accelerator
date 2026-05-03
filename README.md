@@ -1,6 +1,6 @@
 # UniWell Assistant: AI-Based Emotional Support Chatbot
 
-This project implements and evaluates **UniWell Assistant**, an AI-based emotional support chatbot for university students. The chatbot is designed as a **non-clinical support tool** for situations such as stress, exam anxiety, feeling overwhelmed, or difficulties in the study routine.  
+This project implements and evaluates **UniWell Assistant**, an AI-based emotional support chatbot for university students. The chatbot is designed as a **non-clinical support tool** for situations such as stress, exam anxiety, feeling overwhelmed, or difficulties in the study routine.
 
 The project includes a React/Vite frontend, an Azure Functions backend, Azure OpenAI model configurations, Azure AI Content Safety guardrails, and automated evaluation scripts. The project is intended to be run **locally**.
 
@@ -18,8 +18,10 @@ The project includes a React/Vite frontend, an Azure Functions backend, Azure Op
 ## 1. Setup & Installation
 
 ### Install Dependencies
+
 Run the following commands from the project root to install all required dependencies for the frontend, backend, and Python scripts:
-```bash
+
+~~~bash
 # Install frontend dependencies
 npm install
 
@@ -30,71 +32,100 @@ cd ..
 
 # Install Python dependencies for evaluation scripts
 pip install openai python-dotenv azure-ai-contentsafety azure-core
-Environment Variables
-Create a local .env file in the project root.
-(Note: The .env file is ignored by git and must not be committed).
+~~~
 
-Add the following keys to your .env file:
+### Environment Variables
 
-AZURE_OPENAI_ENDPOINT=[https://your-resource.openai.azure.com/](https://your-resource.openai.azure.com/)
+Create a local `.env` file in the project root.
+
+**Note:** The `.env` file is ignored by git and must not be committed.
+
+Add the following keys to your `.env` file:
+
+~~~env
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your_azure_openai_key
 
-AZURE_CONTENT_SAFETY_ENDPOINT=[https://your-content-safety-resource.cognitiveservices.azure.com/](https://your-content-safety-resource.cognitiveservices.azure.com/)
+AZURE_CONTENT_SAFETY_ENDPOINT=https://your-content-safety-resource.cognitiveservices.azure.com/
 AZURE_CONTENT_SAFETY_API_KEY=your_content_safety_key
+~~~
+
 Azure OpenAI: Required for model calls and LLM-as-a-judge evaluation.
 
 Azure AI Content Safety: Required for guardrail testing.
+
 ---
 
 ## 2. Running the Application Locally
 
-Start the Backend (Azure Functions)
-The main OpenAI endpoint is located in backend/src/functions/openai.js, and the model config is in backend/src/utils/modelConfig.js.
+### Start the Backend (Azure Functions)
 
-Bash
+The main OpenAI endpoint is located in `backend/src/functions/openai.js`, and the model config is in `backend/src/utils/modelConfig.js`.
+
+~~~bash
 cd backend
 func start
-Start the Frontend (React/Vite)
-The main UI is located in src/pages/MainPage.jsx.
+~~~
 
-Bash
+### Start the Frontend (React/Vite)
+
+The main UI is located in `src/pages/MainPage.jsx`.
+
+~~~bash
 # In a new terminal window at the project root
 npm run dev
-Open the local URL shown in your terminal (usually http://localhost:5173).
+~~~
 
-Frontend UI Modes
+Open the local URL shown in your terminal, usually:
+
+~~~text
+http://localhost:5173
+~~~
+
+### Frontend UI Modes
+
 The user interface provides three modes that map to internal model configurations:
 
-UI Label	Internal Configuration
-Sicherheitsfokus	strict_4o
-Unterstützend	supportive_4o
-Standard	baseline_4.1
+| UI Label | Internal Configuration |
+|---|---|
+| Sicherheitsfokus | `strict_4o` |
+| Unterstützend | `supportive_4o` |
+| Standard | `baseline_4.1` |
 
 ---
+
 ## 3. Running the Evaluation Pipeline
+
 To run the experiment and generate scores for the models, run the Python scripts in the following order.
 
+### Step 1: Generate Responses
 
-Step 1: Generate Responses
 Run the configured model-prompt settings against the structured test dataset.
 
-Bash
+~~~bash
 python tests/all-tests.py
-This script stores the generated model responses, guardrail decisions, blocking stages, and token usage in the azurefile/chat-results/ directory.
+~~~
 
-Step 2: Evaluate Results (LLM-as-a-Judge)
+This script stores the generated model responses, guardrail decisions, blocking stages, and token usage in the `azurefile/chat-results/` directory.
+
+### Step 2: Evaluate Results (LLM-as-a-Judge)
+
 Evaluate the quality of the generated responses.
 
-Bash
+~~~bash
 python tests/evaluate-results.py
-Once complete, the final scores for the models will be aggregated in azurefile/chat-evaluation-summary.json.
+~~~
 
-Evaluation Data Reference
-All evaluation datasets and results are stored in the azurefile/ directory:
+Once complete, the final scores for the models will be aggregated in `azurefile/chat-evaluation-summary.json`.
 
-File / Folder	Description
-chat-requests.json	Structured test prompts.
-chat-settings.json	Model and prompt configurations.
-chat-eval-cases.json	Case categories and expected response criteria.
-chat-results/	Generated model responses and metadata.
-chat-evaluation-summary.json	Aggregated LLM-based evaluation summaries (generated after Step 2).
+### Evaluation Data Reference
+
+All evaluation datasets and results are stored in the `azurefile/` directory:
+
+| File / Folder | Description |
+|---|---|
+| `chat-requests.json` | Structured test prompts. |
+| `chat-settings.json` | Model and prompt configurations. |
+| `chat-eval-cases.json` | Case categories and expected response criteria. |
+| `chat-results/` | Generated model responses and metadata. |
+| `chat-evaluation-summary.json` | Aggregated LLM-based evaluation summaries generated after Step 2. |
